@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Backend API",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["--watch", "server.js"],
+      "cwd": "backend",
+      "port": 3000
+    },
+    {
+      "name": "Customer App (Expo)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--max-workers", "2"],
+      "cwd": "apps/customer",
+      "port": 8081
+    },
+    {
+      "name": "Driver App (Expo)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--max-workers", "2", "--port", "8082"],
+      "cwd": "apps/driver",
+      "port": 8082
+    },
+    {
+      "name": "Vendor App (Expo)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["expo", "start", "--max-workers", "2", "--port", "8083"],
+      "cwd": "apps/vendor",
+      "port": 8083
+    }
+  ]
+}

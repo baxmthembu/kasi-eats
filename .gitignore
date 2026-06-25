@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+google-play-service-account.json
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem

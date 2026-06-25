@@ -1,0 +1,93 @@
+[
+  {
+    "id": "8c433cef-26e0-4a95-a023-bd7e4a2062f6",
+    "vendor_id": "3976309b-c717-43a3-9acc-c07240a5634e",
+    "name": "Special Kota",
+    "description": "Polony, chips, cheese, russian, egg, and atchar.",
+    "price": 55,
+    "image_url": "https://images.unsplash.com/photo-1627308595229-7830f5c90683?w=800&q=80",
+    "category": "Kotas",
+    "is_available": true,
+    "preparation_time": 15,
+    "created_at": "2026-04-27T20:12:01.109553+00:00",
+    "updated_at": "2026-04-27T20:26:02.054741+00:00"
+  },
+  {
+    "id": "c7bdab27-c734-44b6-883d-af7c5e0ea7c1",
+    "vendor_id": "3976309b-c717-43a3-9acc-c07240a5634e",
+    "name": "Beef Stew",
+    "description": "Slow cooked beef stew served with pap and chakalaka.",
+    "price": 75,
+    "image_url": "https://images.unsplash.com/photo-1547592180-85f173990554?w=800&q=80",
+    "category": "Traditional",
+    "is_available": true,
+    "preparation_time": 15,
+    "created_at": "2026-04-27T20:12:01.109553+00:00",
+    "updated_at": "2026-04-27T20:26:02.325554+00:00"
+  },
+  {
+    "id": "071c1ff7-1244-40e2-91ad-4ec1752d9a39",
+    "vendor_id": "2b052deb-9c32-48be-85b1-390d7554ec4c",
+    "name": "Mixed Braai Plate",
+    "description": "Chuck, Wors, Chicken wing served with pap.",
+    "price": 120,
+    "image_url": "https://images.unsplash.com/photo-1603360946369-dc9bb6258143?w=800&q=80",
+    "category": "Braai",
+    "is_available": true,
+    "preparation_time": 15,
+    "created_at": "2026-04-27T20:12:02.234523+00:00",
+    "updated_at": "2026-04-27T20:26:02.906892+00:00"
+  },
+  {
+    "id": "39de0fac-7e14-4a6d-9239-a2ac7a502df2",
+    "vendor_id": "2b052deb-9c32-48be-85b1-390d7554ec4c",
+    "name": "Wors Roll",
+    "description": "Big braaied wors with spicy tomato relish.",
+    "price": 40,
+    "image_url": "https://images.unsplash.com/photo-1588674996954-325d2d480e64?w=800&q=80",
+    "category": "Fast Food",
+    "is_available": true,
+    "preparation_time": 15,
+    "created_at": "2026-04-27T20:12:02.234523+00:00",
+    "updated_at": "2026-04-27T20:26:03.127165+00:00"
+  },
+  {
+    "id": "ec02fc91-e854-494b-be5c-1e05adc934d6",
+    "vendor_id": "28f3c710-851f-48f6-b006-4a03e617faad",
+    "name": "Magwinya & Polony",
+    "description": "3 fat cakes with a large slice of polony.",
+    "price": 25,
+    "image_url": "https://images.unsplash.com/photo-1579697096985-41fe1430e5d6?w=800&q=80",
+    "category": "Breakfast",
+    "is_available": true,
+    "preparation_time": 15,
+    "created_at": "2026-04-27T20:12:03.317338+00:00",
+    "updated_at": "2026-04-27T20:26:03.606796+00:00"
+  },
+  {
+    "id": "6a9e4317-f9eb-45de-9e87-fc9698d2c03c",
+    "vendor_id": "28f3c710-851f-48f6-b006-4a03e617faad",
+    "name": "Mince Magwinya",
+    "description": "1 giant fat cake stuffed with curried mince.",
+    "price": 35,
+    "image_url": "https://images.unsplash.com/photo-1601004890684-d8cbf643f5f2?w=800&q=80",
+    "category": "Breakfast",
+    "is_available": true,
+    "preparation_time": 15,
+    "created_at": "2026-04-27T20:12:03.317338+00:00",
+    "updated_at": "2026-04-27T20:26:03.851548+00:00"
+  },
+  {
+    "id": "dae6a241-5685-4f51-9c7e-c7579308fa3f",
+    "vendor_id": "d6da297c-9c85-4201-95e7-c52e1a9bd8e0",
+    "name": "Cakes and alcohol ",
+    "description": "Delicious cakes and fine alcohol ",
+    "price": 125,
+    "image_url": "[\"https://res.cloudinary.com/dp9gjl43m/image/upload/v1778584404/kasi-eats-menu/xwz2uhcijqwpa90b8zsq.jpg\",\"https://res.cloudinary.com/dp9gjl43m/image/upload/v1778584407/kasi-eats-menu/vqjbk4piektzjflzbcjk.png\",\"https://res.cloudinary.com/dp9gjl43m/image/upload/v1778584408/kasi-eats-menu/gnukljhkap159jncaojr.jpg\"]",
+    "category": null,
+    "is_available": true,
+    "preparation_time": 15,
+    "created_at": "2026-05-12T11:13:29.951205+00:00",
+    "updated_at": "2026-05-12T11:13:29.951205+00:00"
+  }
+]
