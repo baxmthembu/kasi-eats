@@ -63,7 +63,7 @@ const generateSignature = (data, passphrase = PAYFAST_CONFIG.passphrase) => {
  * @returns {object} PayFast form data with signature
  */
 const generatePaymentData = (order, customer) => {
-  const apiUrl = process.env.API_URL || 'http://localhost:5000';
+  const apiUrl = (process.env.API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
   const data = {
     merchant_id: PAYFAST_CONFIG.merchantId,
