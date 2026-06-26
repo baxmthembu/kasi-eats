@@ -112,6 +112,61 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api', vendorPayoutsRoutes);
 
+// ─── Email Verified Landing Page ───────────────────────────
+app.get('/email-verified', (req, res) => {
+  res.setHeader('Content-Type', 'text/html');
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Email Verified — Kasi Eats</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #FFF7ED;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 48px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .icon { font-size: 64px; margin-bottom: 24px; }
+    h1 { font-size: 24px; color: #1a1a1a; margin-bottom: 12px; font-weight: 700; }
+    p { font-size: 15px; color: #666; line-height: 1.6; margin-bottom: 32px; }
+    .btn {
+      display: inline-block;
+      background: #F97316;
+      color: #fff;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✅</div>
+    <h1>Email Verified!</h1>
+    <p>Your Kasi Eats account has been confirmed. You can now return to the app and log in.</p>
+    <a href="kasieats://auth-callback" class="btn">Open Kasi Eats App</a>
+  </div>
+</body>
+</html>`);
+});
+
 // ─── Health Check ──────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({
