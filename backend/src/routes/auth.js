@@ -7,7 +7,7 @@ const { body, validationResult, checkExact } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { supabase } = require('../config/supabase');
+const { supabase, supabaseAnon } = require('../config/supabase');
 const { authenticate, authorize } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
 const router = express.Router();
@@ -39,23 +39,17 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
   const { email, password, name, phone, role, description, address, cover_image, delivery_radius_km, min_order_amount, is_open } = req.body;
 
   try {
-    // 1. Register with Supabase Auth (email_confirm: false → sends verification email)
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    // 1. Register with Supabase Auth — signUp() sends the verification email automatically
+    const { data: authData, error: authError } = await supabaseAnon.auth.signUp({
       email,
       password,
-      email_confirm: false,
+      options: {
+        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'kasieats://auth-callback',
+      },
     });
 
     if (authError) return res.status(400).json({ error: authError.message });
-
-    // Send verification email via Supabase
-    await supabase.auth.admin.generateLink({
-      type: 'signup',
-      email,
-      options: {
-        redirectTo: process.env.EMAIL_REDIRECT_URL || 'kasieats://auth-callback',
-      },
-    });
+    if (!authData.user) return res.status(400).json({ error: 'Registration failed' });
 
     const userId = authData.user.id;
     const passwordHash = await bcrypt.hash(password, 10);
@@ -362,11 +356,11 @@ router.post('/resend-verification', authLimiter, async (req, res) => {
   if (!email) return res.status(400).json({ error: 'Email is required' });
 
   try {
-    const { error } = await supabase.auth.admin.generateLink({
+    const { error } = await supabaseAnon.auth.resend({
       type: 'signup',
       email,
       options: {
-        redirectTo: process.env.EMAIL_REDIRECT_URL || 'kasieats://auth-callback',
+        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'kasieats://auth-callback',
       },
     });
 
