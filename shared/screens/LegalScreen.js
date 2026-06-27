@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PRIVACY_POLICY = `Last updated: June 2025
 
-Kasi Eats ("we", "us", or "our") operates the Kasi Eats mobile applications. This policy explains how we collect, use, and protect your personal information.
+Vuka Eats ("we", "us", or "our") operates the Vuka Eats mobile applications. This policy explains how we collect, use, and protect your personal information.
 
 1. INFORMATION WE COLLECT
 We collect information you provide directly: name, email address, phone number, delivery addresses, and payment information. We also collect location data (with your permission) to connect you with nearby vendors and track deliveries.
@@ -37,19 +37,19 @@ We use industry-standard encryption and Supabase's secure infrastructure to prot
 You have the right to access, correct, or delete your personal data. Contact us at privacy@kasieats.com.
 
 8. CONTACT
-Kasi Eats
+Vuka Eats
 Email: privacy@kasieats.com
 Website: https://kasieats.com`;
 
 const TERMS_OF_SERVICE = `Last updated: June 2025
 
-Please read these Terms of Service carefully before using Kasi Eats.
+Please read these Terms of Service carefully before using Vuka Eats.
 
 1. ACCEPTANCE OF TERMS
-By downloading or using the Kasi Eats app, you agree to these terms. If you do not agree, do not use the app.
+By downloading or using the Vuka Eats app, you agree to these terms. If you do not agree, do not use the app.
 
 2. THE SERVICE
-Kasi Eats is a food ordering platform that connects customers with local food vendors. We facilitate the ordering and delivery process but are not the food vendor.
+Vuka Eats is a food ordering platform that connects customers with local food vendors. We facilitate the ordering and delivery process but are not the food vendor.
 
 3. USER ACCOUNTS
 You must provide accurate information when creating an account. You are responsible for maintaining the security of your account credentials.
@@ -70,30 +70,30 @@ In accordance with the Consumer Protection Act 68 of 2008:
 
 6. DELIVERY
 - Delivery times are estimates only and may vary due to traffic, weather, or vendor preparation time.
-- Kasi Eats is not liable for delays caused by circumstances beyond our control.
+- Vuka Eats is not liable for delays caused by circumstances beyond our control.
 - Ensure your delivery address is accurate. We cannot refund orders delivered to an incorrect address provided by the customer.
 
 7. VENDOR OBLIGATIONS
-By registering as a vendor on Kasi Eats, you agree to the following:
+By registering as a vendor on Vuka Eats, you agree to the following:
 - You are responsible for the quality, safety, and accurate description of all food items listed on the platform.
 - You must comply with all applicable food safety and hygiene regulations, including any Department of Health requirements.
-- Kasi Eats retains a 15% commission on all completed orders. Vendors receive 85% of the order value, paid out weekly to the bank account on file.
-- Kasi Eats reserves the right to suspend or remove vendors who repeatedly violate food safety, quality, or platform standards.
+- Vuka Eats retains a 15% commission on all completed orders. Vendors receive 85% of the order value, paid out weekly to the bank account on file.
+- Vuka Eats reserves the right to suspend or remove vendors who repeatedly violate food safety, quality, or platform standards.
 - Vendor payouts are processed weekly every Sunday. You must have valid bank details saved to receive payment.
 
 8. DRIVER OBLIGATIONS
-By registering as a driver on Kasi Eats, you confirm and agree to the following:
+By registering as a driver on Vuka Eats, you confirm and agree to the following:
 - You hold a valid South African driving licence appropriate for the vehicle you use.
 - You hold a valid Professional Driving Permit (PDP) as required by the National Road Traffic Act for carrying goods or passengers for reward. Drivers without a valid PDP may not make deliveries on this platform.
-- Your vehicle is roadworthy and covered by valid vehicle insurance. Kasi Eats is not liable for any accidents, injuries, or damages arising from your use of a vehicle while making deliveries.
-- You operate as an independent contractor, not an employee of Kasi Eats.
+- Your vehicle is roadworthy and covered by valid vehicle insurance. Vuka Eats is not liable for any accidents, injuries, or damages arising from your use of a vehicle while making deliveries.
+- You operate as an independent contractor, not an employee of Vuka Eats.
 - You must comply with all traffic laws and road safety regulations at all times.
 
 9. PROHIBITED CONDUCT
-You may not use Kasi Eats to engage in fraud, harassment, or any illegal activity. Accounts found in violation will be suspended.
+You may not use Vuka Eats to engage in fraud, harassment, or any illegal activity. Accounts found in violation will be suspended.
 
 10. LIMITATION OF LIABILITY
-To the maximum extent permitted by law, Kasi Eats is not liable for indirect, incidental, or consequential damages arising from use of our service. Our total liability to you shall not exceed the value of the order in dispute.
+To the maximum extent permitted by law, Vuka Eats is not liable for indirect, incidental, or consequential damages arising from use of our service. Our total liability to you shall not exceed the value of the order in dispute.
 
 11. CHANGES TO TERMS
 We may update these terms from time to time. Continued use of the app after changes constitutes acceptance of the updated terms.
@@ -102,7 +102,7 @@ We may update these terms from time to time. Continued use of the app after chan
 These terms are governed by the laws of the Republic of South Africa. Any disputes shall be subject to the jurisdiction of the South African courts.
 
 13. CONTACT
-Kasi Eats
+Vuka Eats
 Email: legal@kasieats.com
 Website: https://kasieats.com`;
 

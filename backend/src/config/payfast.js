@@ -75,7 +75,7 @@ const generatePaymentData = (order, customer) => {
     email_address: customer.email || '',
     m_payment_id: order.id,
     amount: parseFloat(order.total).toFixed(2),
-    item_name: `Kasi Eats Order ${order.id.slice(0, 8)}`,
+    item_name: `Vuka Eats Order ${order.id.slice(0, 8)}`,
     item_description: `Food delivery order from vendor`,
   };
 
