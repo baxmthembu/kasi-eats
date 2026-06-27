@@ -58,32 +58,50 @@ You must provide accurate information when creating an account. You are responsi
 - Orders are confirmed only after successful payment via PayFast.
 - Prices displayed are final and inclusive of applicable taxes.
 - The platform retains a 15% commission; vendors receive 85% of order value.
-- Refunds are handled on a case-by-case basis — contact support within 24 hours.
+- Refunds are handled on a case-by-case basis — contact support within 24 hours of your order.
 
-5. DELIVERY
-- Delivery times are estimates only and may vary.
-- Kasi Eats is not liable for delays caused by traffic, weather, or circumstances beyond our control.
+5. CANCELLATIONS & REFUNDS (Consumer Protection Act)
+In accordance with the Consumer Protection Act 68 of 2008:
+- You may cancel an order within 5 minutes of placing it, provided the vendor has not yet started preparing it. To cancel, contact support immediately via the app.
+- If your order is materially different from what was described, or if it is not delivered, you are entitled to a full refund.
+- Refund requests must be submitted within 24 hours of the scheduled delivery time. Contact support@kasieats.com with your order number and reason.
+- Refunds are processed within 5–7 business days to your original payment method.
+- We reserve the right to decline refund requests where the order was delivered as described and within a reasonable time.
+
+6. DELIVERY
+- Delivery times are estimates only and may vary due to traffic, weather, or vendor preparation time.
+- Kasi Eats is not liable for delays caused by circumstances beyond our control.
 - Ensure your delivery address is accurate. We cannot refund orders delivered to an incorrect address provided by the customer.
 
-6. VENDOR OBLIGATIONS
-Vendors must ensure food is prepared safely and matches the description on the app. Kasi Eats reserves the right to remove vendors who repeatedly violate food safety or quality standards.
+7. VENDOR OBLIGATIONS
+By registering as a vendor on Kasi Eats, you agree to the following:
+- You are responsible for the quality, safety, and accurate description of all food items listed on the platform.
+- You must comply with all applicable food safety and hygiene regulations, including any Department of Health requirements.
+- Kasi Eats retains a 15% commission on all completed orders. Vendors receive 85% of the order value, paid out weekly to the bank account on file.
+- Kasi Eats reserves the right to suspend or remove vendors who repeatedly violate food safety, quality, or platform standards.
+- Vendor payouts are processed weekly every Sunday. You must have valid bank details saved to receive payment.
 
-7. DRIVER OBLIGATIONS
-Drivers must maintain valid licences, roadworthy vehicles, and comply with all traffic laws. Drivers operate as independent contractors.
+8. DRIVER OBLIGATIONS
+By registering as a driver on Kasi Eats, you confirm and agree to the following:
+- You hold a valid South African driving licence appropriate for the vehicle you use.
+- You hold a valid Professional Driving Permit (PDP) as required by the National Road Traffic Act for carrying goods or passengers for reward. Drivers without a valid PDP may not make deliveries on this platform.
+- Your vehicle is roadworthy and covered by valid vehicle insurance. Kasi Eats is not liable for any accidents, injuries, or damages arising from your use of a vehicle while making deliveries.
+- You operate as an independent contractor, not an employee of Kasi Eats.
+- You must comply with all traffic laws and road safety regulations at all times.
 
-8. PROHIBITED CONDUCT
+9. PROHIBITED CONDUCT
 You may not use Kasi Eats to engage in fraud, harassment, or any illegal activity. Accounts found in violation will be suspended.
 
-9. LIMITATION OF LIABILITY
-To the maximum extent permitted by law, Kasi Eats is not liable for indirect, incidental, or consequential damages arising from use of our service.
+10. LIMITATION OF LIABILITY
+To the maximum extent permitted by law, Kasi Eats is not liable for indirect, incidental, or consequential damages arising from use of our service. Our total liability to you shall not exceed the value of the order in dispute.
 
-10. CHANGES TO TERMS
-We may update these terms. Continued use of the app after changes constitutes acceptance of the new terms.
+11. CHANGES TO TERMS
+We may update these terms from time to time. Continued use of the app after changes constitutes acceptance of the updated terms.
 
-11. GOVERNING LAW
-These terms are governed by the laws of the Republic of South Africa.
+12. GOVERNING LAW
+These terms are governed by the laws of the Republic of South Africa. Any disputes shall be subject to the jurisdiction of the South African courts.
 
-12. CONTACT
+13. CONTACT
 Kasi Eats
 Email: legal@kasieats.com
 Website: https://kasieats.com`;
