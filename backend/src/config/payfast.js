@@ -34,14 +34,13 @@ const PAYFAST_VALIDATE_URL = PAYFAST_CONFIG.sandbox
  * @returns {string} MD5 signature
  */
 const generateSignature = (data, passphrase = PAYFAST_CONFIG.passphrase) => {
-  // PayFast signature rules (from official docs):
-  //  - Exclude 'signature' and 'merchant_key' from the string
-  //  - Sort remaining keys alphabetically
-  //  - URL-encode values (spaces → +, not %20) — matches PHP urlencode()
+  // PayFast signature rules (matches official PHP SDK):
+  //  - Exclude only 'signature' — merchant_key IS included
+  //  - Preserve declaration order — do NOT sort
+  //  - URL-encode values (spaces → +) matching PHP urlencode()
   //  - Append &passphrase=... at the end if a passphrase is set
   const paramString = Object.keys(data)
-    .filter((key) => key !== 'signature' && key !== 'merchant_key' && data[key] !== '' && data[key] != null)
-    .sort()
+    .filter((key) => key !== 'signature' && data[key] !== '' && data[key] != null)
     .map((key) => `${key}=${encodeURIComponent(String(data[key]).trim()).replace(/%20/g, '+')}`)
     .join('&');
 
