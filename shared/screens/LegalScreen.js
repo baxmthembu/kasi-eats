@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const PRIVACY_POLICY = `Last updated: June 2025
 
-Vuka Eats ("we", "us", or "our") operates the Vuka Eats mobile applications. This policy explains how we collect, use, and protect your personal information.
+Vuka Eats is a trading name of KulaConnect (Pty) Ltd ("we", "us", or "our"), a company registered in the Republic of South Africa. We operate the Vuka Eats mobile applications. This policy explains how we collect, use, and protect your personal information.
 
 1. INFORMATION WE COLLECT
 We collect information you provide directly: name, email address, phone number, delivery addresses, and payment information. We also collect location data (with your permission) to connect you with nearby vendors and track deliveries.
@@ -34,16 +34,18 @@ We retain your data for as long as your account is active or as required by law.
 We use industry-standard encryption and Supabase's secure infrastructure to protect your data. Payment processing is handled by PayFast, a PCI-DSS compliant provider.
 
 7. YOUR RIGHTS
-You have the right to access, correct, or delete your personal data. Contact us at privacy@kasieats.com.
+You have the right to access, correct, or delete your personal data. Contact us at privacy@vukaeats.co.za.
 
 8. CONTACT
-Vuka Eats
-Email: privacy@kasieats.com
-Website: https://kasieats.com`;
+Vuka Eats (a trading name of KulaConnect (Pty) Ltd)
+Email: privacy@vukaeats.co.za
+Website: https://vukaeats.co.za`;
 
 const TERMS_OF_SERVICE = `Last updated: June 2025
 
 Please read these Terms of Service carefully before using Vuka Eats.
+
+These Terms constitute a binding agreement between you and KulaConnect (Pty) Ltd, trading as Vuka Eats, a company registered in the Republic of South Africa.
 
 1. ACCEPTANCE OF TERMS
 By downloading or using the Vuka Eats app, you agree to these terms. If you do not agree, do not use the app.
@@ -64,7 +66,7 @@ You must provide accurate information when creating an account. You are responsi
 In accordance with the Consumer Protection Act 68 of 2008:
 - You may cancel an order within 5 minutes of placing it, provided the vendor has not yet started preparing it. To cancel, contact support immediately via the app.
 - If your order is materially different from what was described, or if it is not delivered, you are entitled to a full refund.
-- Refund requests must be submitted within 24 hours of the scheduled delivery time. Contact support@kasieats.com with your order number and reason.
+- Refund requests must be submitted within 24 hours of the scheduled delivery time. Contact support@vukaeats.co.za with your order number and reason.
 - Refunds are processed within 5–7 business days to your original payment method.
 - We reserve the right to decline refund requests where the order was delivered as described and within a reasonable time.
 
@@ -102,9 +104,9 @@ We may update these terms from time to time. Continued use of the app after chan
 These terms are governed by the laws of the Republic of South Africa. Any disputes shall be subject to the jurisdiction of the South African courts.
 
 13. CONTACT
-Vuka Eats
-Email: legal@kasieats.com
-Website: https://kasieats.com`;
+Vuka Eats (a trading name of KulaConnect (Pty) Ltd)
+Email: legal@vukaeats.co.za
+Website: https://vukaeats.co.za`;
 
 export default function LegalScreen({ route }) {
   const type = route?.params?.type || 'privacy';
