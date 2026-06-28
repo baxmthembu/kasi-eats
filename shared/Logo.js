@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, View, StyleSheet, useWindowDimensions } from 'react-native';
 
 /**
- * Vuka Eats Logo component — responsive across all screen sizes.
+ * Street Plate Logo component — responsive across all screen sizes.
  *
  * Each app passes its own local `source` prop so the shared module
  * doesn't need to bundle an asset from a fixed path.
@@ -37,7 +37,7 @@ export default function Logo({ size = 'splash', width, height, source, style }) 
         source={source}
         style={{ width: resolvedWidth, height: resolvedHeight }}
         resizeMode="contain"
-        accessibilityLabel="Vuka Eats"
+        accessibilityLabel="Street Plate"
       />
     </View>
   );

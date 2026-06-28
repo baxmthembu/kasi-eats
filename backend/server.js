@@ -1,5 +1,5 @@
 /**
- * Vuka Eats — Main Server Entry Point
+ * Street Plate — Main Server Entry Point
  * Express API server with Socket.IO for real-time features
  */
 require('dotenv').config();
@@ -120,7 +120,7 @@ app.get('/email-verified', (req, res) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Email Verified — Vuka Eats</title>
+  <title>Email Verified — Street Plate</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -160,8 +160,8 @@ app.get('/email-verified', (req, res) => {
   <div class="card">
     <div class="icon">✅</div>
     <h1>Email Verified!</h1>
-    <p>Your Vuka Eats account has been confirmed. You can now return to the app and log in.</p>
-    <a href="kasieats://auth-callback" class="btn">Open Vuka Eats App</a>
+    <p>Your Street Plate account has been confirmed. You can now return to the app and log in.</p>
+    <a href="kasieats://auth-callback" class="btn">Open Street Plate App</a>
   </div>
 </body>
 </html>`);
@@ -219,7 +219,7 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 // ─── Start Server ──────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`🚀 Vuka Eats API running on port ${PORT}`);
+  console.log(`🚀 Street Plate API running on port ${PORT}`);
   console.log(`📡 WebSocket server ready`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });

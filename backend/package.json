@@ -1,7 +1,7 @@
 {
   "name": "kasi-eats-backend",
   "version": "1.0.0",
-  "description": "Vuka Eats — Backend API for food delivery platform",
+  "description": "Street Plate — Backend API for food delivery platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
