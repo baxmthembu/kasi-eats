@@ -44,7 +44,7 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
       email,
       password,
       options: {
-        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://kasi-eats-production.up.railway.app/email-verified',
+        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://www.streetplate.co.za/email-verified',  
       },
     });
 
@@ -360,7 +360,7 @@ router.post('/resend-verification', authLimiter, async (req, res) => {
       type: 'signup',
       email,
       options: {
-        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://kasi-eats-production.up.railway.app/email-verified',
+        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://www.streetplate.co.za/email-verified',
       },
     });
 
