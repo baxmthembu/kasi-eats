@@ -200,6 +200,123 @@ router.post('/notify', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/payments/simulate
+ * Dev-only: bypass PayFast and mark an order as paid instantly.
+ * Runs the same logic as the ITN handler so the full downstream
+ * flow (vendor notification, wallet credit, WebSocket events) fires.
+ */
+router.post('/simulate', authenticate, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'Not available in production' });
+  }
+
+  const { order_id } = req.body;
+  if (!order_id) return res.status(400).json({ error: 'order_id required' });
+
+  try {
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('id, total, customer_id, vendor_id, status, order_items(*)')
+      .eq('id', order_id)
+      .single();
+
+    if (orderErr || !order) return res.status(404).json({ error: 'Order not found' });
+    if (order.customer_id !== req.user.id) return res.status(403).json({ error: 'Forbidden' });
+
+    const amount = parseFloat(order.total);
+    const { commission, vendorPayout } = calculateCommission(amount);
+    const paidAt = new Date().toISOString();
+
+    // Record simulated payment
+    await supabase.from('payments').upsert(
+      {
+        order_id,
+        amount,
+        method: 'simulated',
+        status: 'completed',
+        payfast_payment_id: `SIM-${Date.now()}`,
+        commission,
+        vendor_payout: vendorPayout,
+        paid_at: paidAt,
+      },
+      { onConflict: 'order_id' }
+    );
+
+    // Mark order confirmed
+    const { data: updatedOrder } = await supabase
+      .from('orders')
+      .update({ status: 'confirmed', payment_confirmed_at: paidAt })
+      .eq('id', order_id)
+      .select('*, order_items(*)')
+      .single();
+
+    if (updatedOrder) {
+      const io = req.app.get('io');
+      const { emitNewOrder, emitOrderStatus, emitPaymentConfirmed } = require('../websocket/handler');
+      const { sendPushToVendor } = require('../services/notificationService');
+
+      const { data: vendorData } = await supabase
+        .from('vendors')
+        .select('user_id, expo_push_token, business_name')
+        .eq('id', updatedOrder.vendor_id)
+        .single();
+
+      if (vendorData) {
+        await emitNewOrder(io, vendorData.user_id, updatedOrder);
+        if (vendorData.expo_push_token) {
+          await sendPushToVendor(vendorData.expo_push_token, {
+            title: 'New paid order',
+            body: `R${updatedOrder.total} — ${updatedOrder.order_number || updatedOrder.id.slice(0, 8)}`,
+            data: { orderId: updatedOrder.id, type: 'new_order' },
+          });
+        }
+      }
+
+      // Credit vendor wallet
+      const { data: existingWallet } = await supabase
+        .from('vendor_wallets')
+        .select('pending_balance, lifetime_earnings, total_orders')
+        .eq('vendor_id', updatedOrder.vendor_id)
+        .maybeSingle();
+
+      if (existingWallet) {
+        await supabase
+          .from('vendor_wallets')
+          .update({
+            pending_balance:   parseFloat(existingWallet.pending_balance)   + vendorPayout,
+            lifetime_earnings: parseFloat(existingWallet.lifetime_earnings) + vendorPayout,
+            total_orders:      existingWallet.total_orders + 1,
+            updated_at:        paidAt,
+          })
+          .eq('vendor_id', updatedOrder.vendor_id);
+      } else {
+        await supabase.from('vendor_wallets').insert({
+          vendor_id:         updatedOrder.vendor_id,
+          pending_balance:   vendorPayout,
+          lifetime_earnings: vendorPayout,
+          total_orders:      1,
+        });
+      }
+
+      emitPaymentConfirmed(io, updatedOrder.customer_id, updatedOrder);
+      await emitOrderStatus(
+        io,
+        updatedOrder.customer_id,
+        order_id,
+        'confirmed',
+        { message: 'Payment successful! Vendor is preparing your order.' },
+        vendorData?.user_id
+      );
+    }
+
+    res.json({ success: true, orderId: order_id });
+  } catch (err) {
+    console.error('[simulate] Error:', err);
+    res.status(500).json({ error: 'Simulation failed' });
+  }
+});
+
 router.get('/return', (req, res) => {
   res.send('<h2>Payment Successful. You can close this window.</h2>');
 });
