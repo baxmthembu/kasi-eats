@@ -17,7 +17,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 // Common validation checks
 const validateRegister = [
   body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').isString().isLength({ min: 6, max: 128 }).withMessage('Password must be between 6 and 128 characters'),
+  body('password').isString().isLength({ min: 8, max: 128 }).withMessage('Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol'),
   body('name').isString().trim().notEmpty().isLength({ max: 100 }).withMessage('Name is required and strictly limited in length'),
   body('phone').optional().isString().trim().notEmpty().isLength({ max: 20 }).withMessage('Phone is required'),
   body('role').isIn(['customer', 'driver', 'vendor']).withMessage('Invalid role'),
