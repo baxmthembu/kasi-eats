@@ -146,11 +146,14 @@ router.get('/', authenticate, [
   try {
     let q = supabase
       .from('orders')
-      .select('*, order_items(*), vendors(business_name, address, latitude, longitude)')
+      .select('*, order_items(*), vendors(id, business_name, address, latitude, longitude, cover_image)')
       .order('created_at', { ascending: false })
       .limit(parseInt(limit, 10));
 
-    if (status) q = q.eq('status', status);
+    if (status) {
+      const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
+      q = statuses.length === 1 ? q.eq('status', statuses[0]) : q.in('status', statuses);
+    }
 
     if (role === 'customer') q = q.eq('customer_id', userId);
     else if (role === 'driver') q = q.eq('driver_id', userId);
