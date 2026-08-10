@@ -70,9 +70,9 @@ const generateVendorPayout = async (vendorId, weekStart, weekEnd) => {
 
   // Snapshot bank details at payout generation time
   const { data: vendor } = await supabase
-    .from('vendors')
+    .from('vendor_bank_details')
     .select('bank_name, account_holder, account_number, branch_code, account_type')
-    .eq('id', vendorId)
+    .eq('vendor_id', vendorId)
     .maybeSingle();
 
   const { data: payout, error } = await supabase

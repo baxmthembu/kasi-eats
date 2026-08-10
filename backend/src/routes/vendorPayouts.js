@@ -84,22 +84,29 @@ router.put('/vendors/bank-details', authenticate, authorize('vendor'), bankValid
   const { bank_name, account_holder, account_number, branch_code, account_type } = req.body;
 
   try {
+    const vendorId = await resolveVendorId(req.user.id);
     const { data, error } = await supabase
-      .from('vendors')
-      .update({
+      .from('vendor_bank_details')
+      .upsert({
+        vendor_id: vendorId,
         bank_name,
         account_holder,
         account_number,
         branch_code,
         account_type,
-        bank_details_updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', req.user.id)
-      .select('bank_name, account_holder, account_number, branch_code, account_type, bank_details_updated_at')
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'vendor_id' })
+      .select('bank_name, account_holder, account_number, branch_code, account_type, updated_at')
       .single();
 
     if (error) return res.status(400).json({ error: error.message });
-    res.json({ vendor: data });
+    const { updated_at, ...bankDetails } = data;
+    res.json({
+      vendor: {
+        ...bankDetails,
+        bank_details_updated_at: updated_at,
+      },
+    });
   } catch (e) {
     res.status(500).json({ error: 'Failed to save bank details' });
   }
