@@ -15,6 +15,7 @@ const {
   generateSignature,
   getApiUrl,
   isPayFastSourceIp,
+  resolvePayFastRequestIp,
   validateITN,
 } = require('../src/config/payfast');
 const {
@@ -95,6 +96,25 @@ test('PayFast source validation accepts documented ITN ranges', async () => {
   assert.equal(await isPayFastSourceIp('197.97.145.160', noDnsResults), false);
   assert.equal(await isPayFastSourceIp('102.216.36.143', noDnsResults), true);
   assert.equal(await isPayFastSourceIp('102.216.36.144', noDnsResults), false);
+});
+
+test('Railway ITNs use the edge-authenticated real IP without trusting it elsewhere', () => {
+  assert.equal(
+    resolvePayFastRequestIp({
+      requestIp: '100.64.0.1',
+      railwayRealIp: '144.126.193.139',
+      railwayEnvironmentId: 'production-id',
+    }),
+    '144.126.193.139'
+  );
+  assert.equal(
+    resolvePayFastRequestIp({
+      requestIp: '203.0.113.10',
+      railwayRealIp: '144.126.193.139',
+      railwayEnvironmentId: '',
+    }),
+    '203.0.113.10'
+  );
 });
 
 test('validateITN rejects a missing merchant identifier', async () => {

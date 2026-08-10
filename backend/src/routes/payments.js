@@ -8,6 +8,7 @@ const {
   generatePaymentData,
   validateITN,
   calculateCommission,
+  resolvePayFastRequestIp,
 } = require('../config/payfast');
 const { authenticate } = require('../middleware/auth');
 const { paymentWebhookLimiter } = require('../middleware/rateLimiter');
@@ -106,7 +107,11 @@ router.post('/notify', paymentWebhookLimiter, async (req, res) => {
   const pfData = req.body;
 
   try {
-    const isValid = await validateITN(pfData, { requestIp: req.ip });
+    const requestIp = resolvePayFastRequestIp({
+      requestIp: req.ip,
+      railwayRealIp: req.get('x-real-ip'),
+    });
+    const isValid = await validateITN(pfData, { requestIp });
     if (!isValid) return res.status(400).send('Invalid notification');
 
     const orderId = String(pfData.m_payment_id || '');

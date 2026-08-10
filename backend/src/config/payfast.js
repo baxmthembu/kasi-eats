@@ -173,6 +173,22 @@ const generatePaymentData = (order, customer) => {
 
 const normalizeIp = (value) => String(value || '').trim().replace(/^::ffff:/, '');
 
+/**
+ * Railway overwrites X-Real-IP at its public edge. Use it only when Railway's
+ * platform-provided environment marker is present; elsewhere, keep req.ip so a
+ * caller cannot spoof the source check with an arbitrary header.
+ */
+const resolvePayFastRequestIp = ({
+  requestIp,
+  railwayRealIp,
+  railwayEnvironmentId = process.env.RAILWAY_ENVIRONMENT_ID,
+} = {}) => {
+  if (railwayEnvironmentId && normalizeIp(railwayRealIp)) {
+    return normalizeIp(railwayRealIp);
+  }
+  return normalizeIp(requestIp);
+};
+
 const ipv4ToInteger = (value) => {
   const octets = value.split('.').map(Number);
   if (
@@ -285,6 +301,7 @@ module.exports = {
   generateSignature,
   signaturesMatch,
   generatePaymentData,
+  resolvePayFastRequestIp,
   isPayFastSourceIp,
   validateITN,
   calculateCommission,
