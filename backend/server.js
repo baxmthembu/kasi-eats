@@ -54,6 +54,17 @@ const io = new Server(server, {
 // Make io accessible in routes
 app.set('io', io);
 
+// Keep the platform health probe independent of redirects, rate limits, and
+// downstream integrations. Railway calls this endpoint over the service's
+// private HTTP network before promoting a deployment.
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'kasi-eats-api',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // ─── HTTPS Enforcement (production only) ──────────────────
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
@@ -282,15 +293,6 @@ app.get('/terms', (req, res) => {
   </div>
 </body>
 </html>`);
-});
-
-// ─── Health Check ──────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'kasi-eats-api',
-    timestamp: new Date().toISOString(),
-  });
 });
 
 // ─── 404 Handler ───────────────────────────────────────────
