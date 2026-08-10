@@ -76,7 +76,8 @@ const validateRegister = [
   body('description').optional().isString().trim().notEmpty().isLength({ max: 1000 }).withMessage('Description is required'),
   body('address').optional().isString().trim().notEmpty().isLength({ max: 255 }).withMessage('Address is required'),
   body('cover_image').optional().notEmpty().withMessage('Cover image is required'),
-  body('is_open').optional().isBoolean().withMessage('Shop open status is required')
+  body('is_open').optional().isBoolean().withMessage('Shop open status is required'),
+  body('turnstile_token').isString().trim().notEmpty().isLength({ max: 2048 }).withMessage('Security verification is required')
 ];
 
 /**
@@ -87,7 +88,7 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { email, password, name, phone, role, description, address, cover_image, delivery_radius_km, min_order_amount, is_open } = req.body;
+  const { email, password, name, phone, role, description, address, cover_image, delivery_radius_km, min_order_amount, is_open, turnstile_token } = req.body;
 
   try {
     const normalizedPhone = phone ? normalizePhone(phone) : null;
@@ -128,7 +129,8 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
       email,
       password,
       options: {
-        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://www.streetplate.co.za/email-verified',  
+        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://www.streetplate.co.za/email-verified',
+        captchaToken: turnstile_token,
       },
     });
 

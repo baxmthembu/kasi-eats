@@ -30,4 +30,5 @@ test('registration reports phone conflicts before incomplete auth profiles', () 
     authSource.indexOf("router.post('/profile/complete'")
   );
   assert.ok(register.indexOf("code: 'PHONE_EXISTS'") < register.indexOf("code: 'PROFILE_INCOMPLETE'"));
+  assert.match(register, /captchaToken: turnstile_token/);
 });
