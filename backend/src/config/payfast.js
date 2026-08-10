@@ -33,18 +33,27 @@ const DEFAULT_PAYFAST_HOSTS = [
   'w2w.payfast.co.za',
 ];
 
+/** Match PHP's urlencode(), which PayFast uses for signature generation. */
 const encodePayFastValue = (value) =>
-  encodeURIComponent(String(value).trim()).replace(/%20/g, '+');
+  encodeURIComponent(String(value))
+    .replace(/[!'()*]/g, (character) =>
+      `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+    )
+    .replace(/%20/g, '+');
 
 /** Build the canonical PayFast parameter string in received/declaration order. */
 const buildParameterString = (
   data,
   { includePassphrase = false, passphrase = PAYFAST_CONFIG.passphrase } = {}
 ) => {
-  const parameterString = Object.keys(data)
-    .filter((key) => key !== 'signature' && data[key] !== '' && data[key] != null)
-    .map((key) => `${key}=${encodePayFastValue(data[key])}`)
-    .join('&');
+  const fields = [];
+  for (const key of Object.keys(data)) {
+    // PayFast signs the fields in received order and places signature last.
+    if (key === 'signature') break;
+    if (data[key] == null) continue;
+    fields.push(`${key}=${encodePayFastValue(data[key])}`);
+  }
+  const parameterString = fields.join('&');
 
   if (!includePassphrase || !passphrase) return parameterString;
   return `${parameterString}&passphrase=${encodePayFastValue(passphrase)}`;

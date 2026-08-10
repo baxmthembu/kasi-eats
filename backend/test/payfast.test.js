@@ -35,6 +35,16 @@ test('buildParameterString preserves declaration order and excludes signature', 
   );
 });
 
+test('buildParameterString matches PayFast PHP encoding and ITN field boundaries', () => {
+  const value = buildParameterString({
+    name_first: " O'Neil ",
+    custom_str1: '',
+    signature: 'ignored',
+    injected_after_signature: 'must-not-be-signed',
+  });
+  assert.equal(value, 'name_first=+O%27Neil+&custom_str1=');
+});
+
 test('generatePaymentData signs valid sandbox fields without logging secrets', () => {
   process.env.PAYFAST_DEBUG = 'true';
   const messages = [];
