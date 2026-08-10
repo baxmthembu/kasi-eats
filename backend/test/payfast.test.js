@@ -88,6 +88,15 @@ test('PayFast source validation accepts resolved IPv4-mapped addresses', async (
   assert.equal(await isPayFastSourceIp('203.0.113.10', lookup), false);
 });
 
+test('PayFast source validation accepts documented ITN ranges', async () => {
+  const noDnsResults = async () => [];
+  assert.equal(await isPayFastSourceIp('144.126.193.139', noDnsResults), true);
+  assert.equal(await isPayFastSourceIp('197.97.145.159', noDnsResults), true);
+  assert.equal(await isPayFastSourceIp('197.97.145.160', noDnsResults), false);
+  assert.equal(await isPayFastSourceIp('102.216.36.143', noDnsResults), true);
+  assert.equal(await isPayFastSourceIp('102.216.36.144', noDnsResults), false);
+});
+
 test('validateITN rejects a missing merchant identifier', async () => {
   const payload = {
     m_payment_id: '11111111-1111-4111-8111-111111111111',
