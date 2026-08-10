@@ -34,6 +34,29 @@ const getOrderRedirectUrl = (orderId, paymentState) => {
   return url.toString();
 };
 
+const renderPaymentResult = ({ cancelled = false } = {}) => {
+  const title = cancelled ? 'Payment cancelled' : 'Payment received';
+  const message = cancelled
+    ? 'No payment was confirmed. Return to StreetPlate when you are ready to try again.'
+    : 'Your payment is being verified securely. Return to StreetPlate to view your order.';
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>${title} | StreetPlate</title>
+  </head>
+  <body style="margin:0;background:#fff7ed;color:#1f2937;font-family:Arial,sans-serif;display:grid;min-height:100vh;place-items:center;padding:24px;box-sizing:border-box">
+    <main style="max-width:560px;background:#fff;border:1px solid #fed7aa;border-radius:20px;padding:32px;box-shadow:0 18px 45px rgba(31,41,55,.12)">
+      <p style="margin:0 0 8px;color:#c2410c;font-weight:700;letter-spacing:.12em;text-transform:uppercase">StreetPlate</p>
+      <h1 style="margin:0 0 16px;font-size:32px">${title}</h1>
+      <p style="margin:0;line-height:1.6">${message}</p>
+    </main>
+  </body>
+</html>`;
+};
+
 /** GET /api/payments/data?order_id=uuid */
 router.get('/data', authenticate, async (req, res) => {
   const { order_id: orderId } = req.query;
@@ -226,9 +249,7 @@ router.get('/return', (req, res) => {
     );
   } catch (error) {
     console.error('[payments] Return redirect failed:', error.message);
-    return res
-      .status(500)
-      .send('Payment received. Return to StreetPlate to view your order.');
+    return res.status(200).type('html').send(renderPaymentResult());
   }
 });
 
@@ -241,8 +262,9 @@ router.get('/cancel', (req, res) => {
   } catch (error) {
     console.error('[payments] Cancel redirect failed:', error.message);
     return res
-      .status(500)
-      .send('Payment cancelled. Return to StreetPlate to retry.');
+      .status(200)
+      .type('html')
+      .send(renderPaymentResult({ cancelled: true }));
   }
 });
 

@@ -27,3 +27,13 @@ test('completed ITNs require the atomic processor before acknowledgment', () => 
   const response = source.indexOf("return res.status(200).send('OK')", rpc);
   assert.ok(gate > 0 && rpc > gate && response > rpc);
 });
+
+test('browser returns degrade to a safe success page without a website URL', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '..', 'src', 'routes', 'payments.js'),
+    'utf8'
+  );
+  assert.match(source, /\.status\(200\)\.type\('html'\)\.send\(renderPaymentResult\(\)\)/);
+  assert.match(source, /renderPaymentResult\(\{ cancelled: true \}\)/);
+  assert.match(source, /payment is being verified securely/i);
+});
