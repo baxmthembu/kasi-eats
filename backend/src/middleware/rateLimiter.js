@@ -20,6 +20,18 @@ const publicLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  // PayFast sends all customers' ITNs from shared infrastructure. It has a
+  // dedicated limiter below so one source cannot exhaust the global pool.
+  skip: (req) => req.path === '/payments/notify',
+});
+
+const paymentWebhookLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3000,
+  keyGenerator: customKeyGenerator,
+  message: 'Too many payment notifications',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 /**
@@ -34,4 +46,4 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-module.exports = { publicLimiter, authLimiter };
+module.exports = { publicLimiter, authLimiter, paymentWebhookLimiter };

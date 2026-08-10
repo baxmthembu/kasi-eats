@@ -403,12 +403,16 @@ CREATE INDEX IF NOT EXISTS idx_driver_earnings_driver_status  ON driver_earnings
 CREATE INDEX IF NOT EXISTS idx_driver_earnings_payout         ON driver_earnings(payout_id);
 
 -- ─── VENDOR BANK DETAILS ──────────────────────────────────────────────────
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS bank_name               VARCHAR(100);
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS account_holder          VARCHAR(255);
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS account_number          VARCHAR(50);
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS branch_code             VARCHAR(20);
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS account_type            VARCHAR(20) DEFAULT 'savings';
-ALTER TABLE vendors ADD COLUMN IF NOT EXISTS bank_details_updated_at TIMESTAMPTZ;
+-- Keep banking fields off vendors: marketplace discovery reads that table publicly.
+CREATE TABLE IF NOT EXISTS vendor_bank_details (
+  vendor_id      UUID         REFERENCES vendors(id) ON DELETE CASCADE PRIMARY KEY,
+  bank_name      VARCHAR(100) NOT NULL,
+  account_holder VARCHAR(255) NOT NULL,
+  account_number VARCHAR(50)  NOT NULL,
+  branch_code    VARCHAR(20)  NOT NULL,
+  account_type   VARCHAR(20)  NOT NULL CHECK (account_type IN ('savings', 'cheque', 'current')),
+  updated_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
 
 -- ─── VENDOR WALLET ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS vendor_wallets (
