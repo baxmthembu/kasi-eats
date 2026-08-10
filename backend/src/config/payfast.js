@@ -1,8 +1,11 @@
 /**
- * PayFast Payment Configuration
- * Sandbox and production support for South African payments
+ * PayFast payment configuration and verification helpers.
+ *
+ * Keep all signing material server-side. Never log the parameter string because
+ * it can contain the merchant key and passphrase.
  */
 const crypto = require('crypto');
+const dns = require('dns').promises;
 const axios = require('axios');
 
 const isSandbox = process.env.PAYFAST_SANDBOX === 'true';
@@ -14,11 +17,6 @@ const PAYFAST_CONFIG = {
   sandbox: isSandbox,
 };
 
-if (!PAYFAST_CONFIG.merchantId || !PAYFAST_CONFIG.merchantKey) {
-  console.warn('⚠️ Missing PayFast credentials in environment variables');
-}
-
-// PayFast URLs
 const PAYFAST_URL = PAYFAST_CONFIG.sandbox
   ? 'https://sandbox.payfast.co.za/eng/process'
   : 'https://www.payfast.co.za/eng/process';
@@ -27,118 +25,201 @@ const PAYFAST_VALIDATE_URL = PAYFAST_CONFIG.sandbox
   ? 'https://sandbox.payfast.co.za/eng/query/validate'
   : 'https://www.payfast.co.za/eng/query/validate';
 
-/**
- * Generate MD5 signature for PayFast parameters
- * @param {object} data - Payment parameters (ordered)
- * @param {string} passphrase - Optional passphrase
- * @returns {string} MD5 signature
- */
-const generateSignature = (data, passphrase = PAYFAST_CONFIG.passphrase) => {
-  // PayFast signature rules (matches official PHP SDK):
-  //  - Exclude only 'signature' — merchant_key IS included
-  //  - Preserve declaration order — do NOT sort
-  //  - URL-encode values (spaces → +) matching PHP urlencode()
-  //  - Append &passphrase=... at the end if a passphrase is set
-  const paramString = Object.keys(data)
+const DEFAULT_PAYFAST_HOSTS = [
+  'www.payfast.co.za',
+  'sandbox.payfast.co.za',
+  'ips.payfast.co.za',
+  'w1w.payfast.co.za',
+  'w2w.payfast.co.za',
+];
+
+const encodePayFastValue = (value) =>
+  encodeURIComponent(String(value).trim()).replace(/%20/g, '+');
+
+/** Build the canonical PayFast parameter string in received/declaration order. */
+const buildParameterString = (
+  data,
+  { includePassphrase = false, passphrase = PAYFAST_CONFIG.passphrase } = {}
+) => {
+  const parameterString = Object.keys(data)
     .filter((key) => key !== 'signature' && data[key] !== '' && data[key] != null)
-    .map((key) => `${key}=${encodeURIComponent(String(data[key]).trim()).replace(/%20/g, '+')}`)
+    .map((key) => `${key}=${encodePayFastValue(data[key])}`)
     .join('&');
 
-  const sigString = passphrase
-    ? `${paramString}&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, '+')}`
-    : paramString;
-
-  if (process.env.PAYFAST_DEBUG === 'true') {
-    console.log('[PayFast] Signature string:', sigString);
-  }
-
-  return crypto.createHash('md5').update(sigString).digest('hex');
+  if (!includePassphrase || !passphrase) return parameterString;
+  return `${parameterString}&passphrase=${encodePayFastValue(passphrase)}`;
 };
 
-/**
- * Generate PayFast payment data for checkout
- * @param {object} order - Order details
- * @param {object} customer - Customer details
- * @returns {object} PayFast form data with signature
- */
+const generateSignature = (data, passphrase = PAYFAST_CONFIG.passphrase) =>
+  crypto
+    .createHash('md5')
+    .update(buildParameterString(data, { includePassphrase: true, passphrase }))
+    .digest('hex');
+
+const signaturesMatch = (actual, expected) => {
+  if (typeof actual !== 'string' || typeof expected !== 'string') return false;
+  const actualBuffer = Buffer.from(actual.toLowerCase(), 'utf8');
+  const expectedBuffer = Buffer.from(expected.toLowerCase(), 'utf8');
+  return (
+    actualBuffer.length === expectedBuffer.length &&
+    crypto.timingSafeEqual(actualBuffer, expectedBuffer)
+  );
+};
+
+const isPrivateHostname = (hostname) => {
+  const value = hostname.toLowerCase();
+  return (
+    value === 'localhost' ||
+    value === '127.0.0.1' ||
+    value === '::1' ||
+    value.endsWith('.local') ||
+    /^10\./.test(value) ||
+    /^192\.168\./.test(value) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(value)
+  );
+};
+
+const getApiUrl = () => {
+  const rawUrl = process.env.API_URL || 'http://localhost:5000';
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error('API_URL must be a valid absolute URL');
+  }
+
+  const requiresPublicHttps =
+    process.env.NODE_ENV === 'production' || !PAYFAST_CONFIG.sandbox;
+  if (
+    requiresPublicHttps &&
+    (url.protocol !== 'https:' || isPrivateHostname(url.hostname))
+  ) {
+    throw new Error('PayFast callbacks require API_URL to use a public HTTPS address');
+  }
+
+  return url.toString().replace(/\/$/, '');
+};
+
+const assertPayFastConfiguration = () => {
+  if (
+    !PAYFAST_CONFIG.merchantId ||
+    !PAYFAST_CONFIG.merchantKey ||
+    !PAYFAST_CONFIG.passphrase
+  ) {
+    throw new Error('PayFast merchant credentials are not configured');
+  }
+  return getApiUrl();
+};
+
+/** Generate signed PayFast fields for an order owned by the customer. */
 const generatePaymentData = (order, customer) => {
-  const apiUrl = (process.env.API_URL || 'http://localhost:5000').replace(/\/$/, '');
+  const apiUrl = assertPayFastConfiguration();
+  const amount = Number(order.total);
+  if (!order.id || !Number.isFinite(amount) || amount <= 0) {
+    throw new Error('Order payment details are invalid');
+  }
 
   const data = {
     merchant_id: PAYFAST_CONFIG.merchantId,
     merchant_key: PAYFAST_CONFIG.merchantKey,
-    return_url: `${apiUrl}/api/payments/return?order_id=${order.id}`,
-    cancel_url: `${apiUrl}/api/payments/cancel?order_id=${order.id}`,
+    return_url: `${apiUrl}/api/payments/return?order_id=${encodeURIComponent(order.id)}`,
+    cancel_url: `${apiUrl}/api/payments/cancel?order_id=${encodeURIComponent(order.id)}`,
     notify_url: `${apiUrl}/api/payments/notify`,
     name_first: customer.name?.split(' ')[0] || '',
     name_last: customer.name?.split(' ').slice(1).join(' ') || '',
     email_address: customer.email || '',
     m_payment_id: order.id,
-    amount: parseFloat(order.total).toFixed(2),
+    amount: amount.toFixed(2),
     item_name: `Street Plate Order ${order.id.slice(0, 8)}`,
-    item_description: `Food delivery order from vendor`,
+    item_description: 'Food delivery order from vendor',
   };
 
-  // PayFast signature mismatch occurs if the HTML form sends empty fields 
-  // that were excluded during the MD5 signature hash calculation.
-  Object.keys(data).forEach(key => {
-    if (data[key] === '' || data[key] === null || data[key] === undefined) {
-      delete data[key];
-    }
+  Object.keys(data).forEach((key) => {
+    if (data[key] === '' || data[key] == null) delete data[key];
   });
 
-  // Generate and append signature properly formatted
   data.signature = generateSignature(data);
 
-  return {
-    paymentUrl: PAYFAST_URL,
-    paymentData: data,
-  };
+  if (process.env.PAYFAST_DEBUG === 'true') {
+    console.info('[PayFast] Generated signed checkout fields', {
+      sandbox: PAYFAST_CONFIG.sandbox,
+      fieldNames: Object.keys(data).filter(
+        (key) => !['merchant_key', 'signature'].includes(key)
+      ),
+    });
+  }
+
+  return { paymentUrl: PAYFAST_URL, paymentData: data };
 };
 
-/**
- * Validate PayFast ITN (Instant Transaction Notification)
- * @param {object} pfData - POST data from PayFast
- * @returns {Promise<boolean>} Whether the ITN is valid
- */
-const validateITN = async (pfData) => {
+const normalizeIp = (value) => String(value || '').trim().replace(/^::ffff:/, '');
+
+const getPayFastHosts = () => {
+  const configured = (process.env.PAYFAST_VALIDATION_HOSTS || '')
+    .split(',')
+    .map((host) => host.trim())
+    .filter(Boolean);
+  return configured.length ? configured : DEFAULT_PAYFAST_HOSTS;
+};
+
+/** Resolve PayFast's documented hosts and compare them with the request source. */
+const isPayFastSourceIp = async (requestIp, lookup = dns.lookup) => {
+  const candidate = normalizeIp(requestIp);
+  if (!candidate) return false;
+
+  const resolved = await Promise.allSettled(
+    getPayFastHosts().map((host) => lookup(host, { all: true }))
+  );
+  const allowed = new Set(
+    resolved.flatMap((result) =>
+      result.status === 'fulfilled'
+        ? result.value.map(({ address }) => normalizeIp(address))
+        : []
+    )
+  );
+  return allowed.has(candidate);
+};
+
+/** Validate signature, merchant, request source and PayFast confirmation. */
+const validateITN = async (
+  pfData,
+  { requestIp, httpClient = axios, lookup = dns.lookup } = {}
+) => {
   try {
-    // 1. Verify signature
-    const pfParamString = Object.keys(pfData)
-      .filter((key) => key !== 'signature' && key !== 'merchant_key')
-      .sort()
-      .map((key) => `${key}=${encodeURIComponent(String(pfData[key]).trim()).replace(/%20/g, '+')}`)
-      .join('&');
-
-    let sigString = pfParamString;
-    if (PAYFAST_CONFIG.passphrase) {
-      sigString += `&passphrase=${encodeURIComponent(PAYFAST_CONFIG.passphrase.trim()).replace(/%20/g, '+')}`;
-    }
-
-    const calculatedSig = crypto.createHash('md5').update(sigString).digest('hex');
-    if (calculatedSig !== pfData.signature) {
-      console.error('PayFast ITN: Invalid signature');
+    if (!pfData || typeof pfData !== 'object' || !pfData.signature) return false;
+    if (!pfData.merchant_id || pfData.merchant_id !== PAYFAST_CONFIG.merchantId) {
+      console.error('PayFast ITN rejected: invalid merchant');
       return false;
     }
 
-    // 2. Confirm with PayFast server
-    const response = await axios.post(PAYFAST_VALIDATE_URL, pfParamString, {
+    const expectedSignature = generateSignature(pfData);
+    if (!signaturesMatch(pfData.signature, expectedSignature)) {
+      console.error('PayFast ITN rejected: invalid signature');
+      return false;
+    }
+
+    if (!(await isPayFastSourceIp(requestIp, lookup))) {
+      console.error('PayFast ITN rejected: invalid request source');
+      return false;
+    }
+
+    const parameterString = buildParameterString(pfData);
+    const response = await httpClient.post(PAYFAST_VALIDATE_URL, parameterString, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      timeout: Number(process.env.PAYFAST_VALIDATION_TIMEOUT_MS || 10000),
+      maxRedirects: 0,
     });
 
-    return response.data === 'VALID';
+    return String(response.data).trim() === 'VALID';
   } catch (error) {
-    console.error('PayFast ITN validation error:', error.message);
+    console.error('PayFast ITN validation failed:', error.message);
     return false;
   }
 };
 
-/**
- * Calculate commission split
- * Platform takes 15%, vendor gets 85%
- */
 const calculateCommission = (amount) => {
-  const total = parseFloat(amount);
+  const total = Number(amount);
+  if (!Number.isFinite(total) || total < 0) throw new Error('Invalid payment amount');
   const commission = Math.round(total * 0.15 * 100) / 100;
   const vendorPayout = Math.round((total - commission) * 100) / 100;
   return { commission, vendorPayout };
@@ -147,8 +228,13 @@ const calculateCommission = (amount) => {
 module.exports = {
   PAYFAST_CONFIG,
   PAYFAST_URL,
+  PAYFAST_VALIDATE_URL,
+  buildParameterString,
   generateSignature,
+  signaturesMatch,
   generatePaymentData,
+  isPayFastSourceIp,
   validateITN,
   calculateCommission,
+  getApiUrl,
 };

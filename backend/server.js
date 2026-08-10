@@ -8,7 +8,6 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
-const xss = require('xss-clean');
 const { publicLimiter } = require('./src/middleware/rateLimiter');
 
 // Import routes
@@ -31,6 +30,13 @@ const { setupWebSocket } = require('./src/websocket/handler');
 
 const app = express();
 const server = http.createServer(app);
+
+// PayFast source verification depends on req.ip. Trust forwarded addresses only
+// when the deployment explicitly declares its verified proxy-hop count.
+const trustProxyHops = Number.parseInt(process.env.TRUST_PROXY_HOPS || '0', 10);
+if (Number.isInteger(trustProxyHops) && trustProxyHops > 0) {
+  app.set('trust proxy', trustProxyHops);
+}
 
 // ─── CORS Origins ─────────────────────────────────────────
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:19000,http://localhost:3000')
@@ -80,8 +86,6 @@ app.use(
 );
 
 // Data Sanitization against XSS
-app.use(xss());
-
 // Rate limiting — Apply global public limiter API-wide
 app.use('/api/', publicLimiter);
 
