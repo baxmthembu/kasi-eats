@@ -33,18 +33,37 @@ const DEFAULT_PAYFAST_HOSTS = [
   'w2w.payfast.co.za',
 ];
 
+// PayFast's documented ITN source ranges. DNS validation remains enabled below
+// so future address changes published through their host records are accepted.
+const DEFAULT_PAYFAST_IPV4_CIDRS = [
+  '197.97.145.144/28',
+  '41.74.179.192/27',
+  '102.216.36.0/28',
+  '102.216.36.128/28',
+  '144.126.193.139/32',
+];
+
+/** Match PHP's urlencode(), which PayFast uses for signature generation. */
 const encodePayFastValue = (value) =>
-  encodeURIComponent(String(value).trim()).replace(/%20/g, '+');
+  encodeURIComponent(String(value))
+    .replace(/[!'()*]/g, (character) =>
+      `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+    )
+    .replace(/%20/g, '+');
 
 /** Build the canonical PayFast parameter string in received/declaration order. */
 const buildParameterString = (
   data,
   { includePassphrase = false, passphrase = PAYFAST_CONFIG.passphrase } = {}
 ) => {
-  const parameterString = Object.keys(data)
-    .filter((key) => key !== 'signature' && data[key] !== '' && data[key] != null)
-    .map((key) => `${key}=${encodePayFastValue(data[key])}`)
-    .join('&');
+  const fields = [];
+  for (const key of Object.keys(data)) {
+    // PayFast signs the fields in received order and places signature last.
+    if (key === 'signature') break;
+    if (data[key] == null) continue;
+    fields.push(`${key}=${encodePayFastValue(data[key])}`);
+  }
+  const parameterString = fields.join('&');
 
   if (!includePassphrase || !passphrase) return parameterString;
   return `${parameterString}&passphrase=${encodePayFastValue(passphrase)}`;
@@ -154,6 +173,51 @@ const generatePaymentData = (order, customer) => {
 
 const normalizeIp = (value) => String(value || '').trim().replace(/^::ffff:/, '');
 
+/**
+ * Railway overwrites X-Real-IP at its public edge. Use it only when Railway's
+ * platform-provided environment marker is present; elsewhere, keep req.ip so a
+ * caller cannot spoof the source check with an arbitrary header.
+ */
+const resolvePayFastRequestIp = ({
+  requestIp,
+  railwayRealIp,
+  railwayEnvironmentId = process.env.RAILWAY_ENVIRONMENT_ID,
+} = {}) => {
+  if (railwayEnvironmentId && normalizeIp(railwayRealIp)) {
+    return normalizeIp(railwayRealIp);
+  }
+  return normalizeIp(requestIp);
+};
+
+const ipv4ToInteger = (value) => {
+  const octets = value.split('.').map(Number);
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return null;
+  }
+  return octets.reduce((result, octet) => (result * 256 + octet) >>> 0, 0);
+};
+
+const isIpv4InCidr = (candidate, cidr) => {
+  const [network, prefixValue] = cidr.split('/');
+  const prefix = Number(prefixValue);
+  const candidateValue = ipv4ToInteger(candidate);
+  const networkValue = ipv4ToInteger(network);
+  if (
+    candidateValue == null ||
+    networkValue == null ||
+    !Number.isInteger(prefix) ||
+    prefix < 0 ||
+    prefix > 32
+  ) {
+    return false;
+  }
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  return (candidateValue & mask) === (networkValue & mask);
+};
+
 const getPayFastHosts = () => {
   const configured = (process.env.PAYFAST_VALIDATION_HOSTS || '')
     .split(',')
@@ -166,6 +230,10 @@ const getPayFastHosts = () => {
 const isPayFastSourceIp = async (requestIp, lookup = dns.lookup) => {
   const candidate = normalizeIp(requestIp);
   if (!candidate) return false;
+
+  if (DEFAULT_PAYFAST_IPV4_CIDRS.some((cidr) => isIpv4InCidr(candidate, cidr))) {
+    return true;
+  }
 
   const resolved = await Promise.allSettled(
     getPayFastHosts().map((host) => lookup(host, { all: true }))
@@ -233,6 +301,7 @@ module.exports = {
   generateSignature,
   signaturesMatch,
   generatePaymentData,
+  resolvePayFastRequestIp,
   isPayFastSourceIp,
   validateITN,
   calculateCommission,

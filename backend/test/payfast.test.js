@@ -15,6 +15,7 @@ const {
   generateSignature,
   getApiUrl,
   isPayFastSourceIp,
+  resolvePayFastRequestIp,
   validateITN,
 } = require('../src/config/payfast');
 const {
@@ -33,6 +34,16 @@ test('buildParameterString preserves declaration order and excludes signature', 
     value,
     'merchant_id=merchant+1&amount=120.00&item_name=Street+Plate+order'
   );
+});
+
+test('buildParameterString matches PayFast PHP encoding and ITN field boundaries', () => {
+  const value = buildParameterString({
+    name_first: " O'Neil ",
+    custom_str1: '',
+    signature: 'ignored',
+    injected_after_signature: 'must-not-be-signed',
+  });
+  assert.equal(value, 'name_first=+O%27Neil+&custom_str1=');
 });
 
 test('generatePaymentData signs valid sandbox fields without logging secrets', () => {
@@ -76,6 +87,34 @@ test('PayFast source validation accepts resolved IPv4-mapped addresses', async (
   const lookup = async () => [{ address: '197.97.145.144', family: 4 }];
   assert.equal(await isPayFastSourceIp('::ffff:197.97.145.144', lookup), true);
   assert.equal(await isPayFastSourceIp('203.0.113.10', lookup), false);
+});
+
+test('PayFast source validation accepts documented ITN ranges', async () => {
+  const noDnsResults = async () => [];
+  assert.equal(await isPayFastSourceIp('144.126.193.139', noDnsResults), true);
+  assert.equal(await isPayFastSourceIp('197.97.145.159', noDnsResults), true);
+  assert.equal(await isPayFastSourceIp('197.97.145.160', noDnsResults), false);
+  assert.equal(await isPayFastSourceIp('102.216.36.143', noDnsResults), true);
+  assert.equal(await isPayFastSourceIp('102.216.36.144', noDnsResults), false);
+});
+
+test('Railway ITNs use the edge-authenticated real IP without trusting it elsewhere', () => {
+  assert.equal(
+    resolvePayFastRequestIp({
+      requestIp: '100.64.0.1',
+      railwayRealIp: '144.126.193.139',
+      railwayEnvironmentId: 'production-id',
+    }),
+    '144.126.193.139'
+  );
+  assert.equal(
+    resolvePayFastRequestIp({
+      requestIp: '203.0.113.10',
+      railwayRealIp: '144.126.193.139',
+      railwayEnvironmentId: '',
+    }),
+    '203.0.113.10'
+  );
 });
 
 test('validateITN rejects a missing merchant identifier', async () => {
