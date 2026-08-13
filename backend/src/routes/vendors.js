@@ -6,7 +6,7 @@ const express = require('express');
 const { body, query, validationResult, checkExact } = require('express-validator');
 const { supabase } = require('../config/supabase');
 const { authenticate, authorize } = require('../middleware/auth');
-const { upload, uploadSingle } = require('../middleware/upload');
+const { scanUploadedImages, upload, uploadSingle } = require('../middleware/upload');
 const { uploadImage } = require('../config/cloudinary');
 const router = express.Router();
 
@@ -80,7 +80,7 @@ const profileValidation = [
  * Upload Profile/Cover Image
  * POST /api/vendors/upload-image
  */
-router.post('/upload-image', authenticate, authorize('vendor'), uploadSingle.single('image'), async (req, res) => {
+router.post('/upload-image', authenticate, authorize('vendor'), uploadSingle.single('image'), scanUploadedImages, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
@@ -234,7 +234,7 @@ router.get('/menu', authenticate, authorize('vendor'), resolveVendor, async (req
  * Add Menu Item (Image upload)
  * POST /api/vendors/menu
  */
-router.post('/menu', authenticate, authorize('vendor'), resolveVendor, upload.array('images', 5), async (req, res) => {
+router.post('/menu', authenticate, authorize('vendor'), resolveVendor, upload.array('images', 5), scanUploadedImages, async (req, res) => {
   try {
     const { name, description, price, is_available, category, preparation_time } = req.body;
     let image_urls = [];
@@ -270,7 +270,7 @@ router.post('/menu', authenticate, authorize('vendor'), resolveVendor, upload.ar
 /**
  * PATCH Menu Item
  */
-router.patch('/menu/:id', authenticate, authorize('vendor'), resolveVendor, upload.array('images', 5), async (req, res) => {
+router.patch('/menu/:id', authenticate, authorize('vendor'), resolveVendor, upload.array('images', 5), scanUploadedImages, async (req, res) => {
   try {
     const { id } = req.params;
 

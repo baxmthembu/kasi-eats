@@ -5,7 +5,7 @@ const express = require('express');
 const { body, param, validationResult } = require('express-validator');
 const { supabase } = require('../config/supabase');
 const { authenticate, authorize } = require('../middleware/auth');
-const { upload, uploadSingle } = require('../middleware/upload');
+const { scanUploadedImages, upload, uploadSingle } = require('../middleware/upload');
 const { uploadImage } = require('../config/cloudinary');
 const { emitPromotionUpdate } = require('../websocket/handler');
 
@@ -92,7 +92,7 @@ router.get('/combos', authenticate, authorize('vendor'), async (req, res) => {
   res.json({ combos: data || [] });
 });
 
-router.post('/combos', authenticate, authorize('vendor'), uploadSingle.single('image'), async (req, res) => {
+router.post('/combos', authenticate, authorize('vendor'), uploadSingle.single('image'), scanUploadedImages, async (req, res) => {
   const vendor = await getVendor(req.user.id);
   const { name, description, price, is_available, items } = req.body;
 
