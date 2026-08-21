@@ -9,6 +9,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const { publicLimiter } = require('./src/middleware/rateLimiter');
+const { checkReadiness } = require('./src/services/readinessService');
 
 // Import routes
 const authRoutes = require('./src/routes/auth');
@@ -65,6 +66,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/readiness', async (req, res) => {
+  const report = await checkReadiness();
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(report.ready ? 200 : 503).json({
+    status: report.ready ? 'ready' : 'unavailable',
+    checks: report.checks,
+  });
+});
+
 // ─── HTTPS Enforcement (production only) ──────────────────
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
@@ -116,6 +126,7 @@ app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/vendors', vendorPromotionsRoutes);
 app.use('/api/vendors/analytics', vendorAnalyticsRoutes);
+app.use('/api', vendorPayoutsRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
@@ -125,7 +136,6 @@ app.use('/api/customers', customerRoutes);
 app.use('/api/maps', mapsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/messages', messagesRoutes);
-app.use('/api', vendorPayoutsRoutes);
 
 // ─── Email Verified Landing Page ───────────────────────────
 app.get('/email-verified', (req, res) => {
