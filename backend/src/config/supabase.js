@@ -21,11 +21,14 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 // Anon client — used for auth.signUp() so Supabase sends verification emails
-const supabaseAnon = createClient(supabaseUrl, process.env.SUPABASE_ANON_KEY, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+const createAnonClient = () =>
+  createClient(supabaseUrl, process.env.SUPABASE_ANON_KEY, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 
-module.exports = { supabase, supabaseAnon };
+const supabaseAnon = createAnonClient();
+
+module.exports = { createAnonClient, supabase, supabaseAnon };
