@@ -72,7 +72,13 @@ const authenticate = async (req, res, next) => {
       .single();
 
     if (error || !user) {
-      return res.status(401).json({ error: 'User profile not found.' });
+      // A confirmed Auth account with no public profile is recoverable through
+      // POST /api/auth/profile/complete. Clients depend on this code to route
+      // the user there instead of looping them back through sign-in.
+      return res.status(401).json({
+        error: 'User profile not found.',
+        code: 'PROFILE_INCOMPLETE',
+      });
     }
 
     if (!user.is_active) {
