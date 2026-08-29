@@ -1,4 +1,5 @@
 const rateLimit = require('express-rate-limit');
+const { createDistributedStore } = require('../services/distributedRateLimitStore');
 
 /**
  * Key generator combining IP and User ID for robust rate limiting
@@ -20,6 +21,8 @@ const publicLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  store: createDistributedStore('public'),
+  passOnStoreError: false,
   // PayFast sends all customers' ITNs from shared infrastructure. It has a
   // dedicated limiter below so one source cannot exhaust the global pool.
   skip: (req) => req.path === '/payments/notify',
@@ -32,6 +35,8 @@ const paymentWebhookLimiter = rateLimit({
   message: 'Too many payment notifications',
   standardHeaders: true,
   legacyHeaders: false,
+  store: createDistributedStore('payfast-itn'),
+  passOnStoreError: false,
 });
 
 /**
@@ -44,6 +49,8 @@ const authLimiter = rateLimit({
   message: { error: 'Too many authentication attempts, please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: createDistributedStore('auth'),
+  passOnStoreError: false,
 });
 
 module.exports = { publicLimiter, authLimiter, paymentWebhookLimiter };

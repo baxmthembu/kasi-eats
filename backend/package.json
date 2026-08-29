@@ -10,11 +10,13 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test test/*.test.js",
-    "check:payments:production": "node scripts/checkPaymentProductionEnv.js"
+    "check:payments:production": "node scripts/checkPaymentProductionEnv.js",
+    "check:production": "node scripts/checkProductionEnv.js"
   },
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.4.2",
     "@supabase/supabase-js": "^2.49.0",
+    "@upstash/redis": "^1.38.2",
     "axios": "^1.7.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.5.0",

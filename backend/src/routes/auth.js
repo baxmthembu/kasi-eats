@@ -7,12 +7,93 @@ const { body, validationResult, checkExact } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { supabase, supabaseAnon } = require('../config/supabase');
+const { createAnonClient, supabase, supabaseAnon } = require('../config/supabase');
 const { authenticate, authorize } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimiter');
+const { verifyTurnstile } = require('../services/turnstileService');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET;
+
+const normalizePhone = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (/^0\d{9}$/.test(digits)) return `+27${digits.slice(1)}`;
+  if (/^27\d{9}$/.test(digits)) return `+${digits}`;
+  if (/^\d{9}$/.test(digits)) return `+27${digits}`;
+  return String(value || '').trim();
+};
+
+const phoneVariants = (value) => {
+  const raw = String(value || '').trim();
+  const canonical = normalizePhone(raw);
+  const digits = canonical.replace(/\D/g, '');
+  const variants = new Set([raw, canonical, digits, `+${digits}`]);
+  if (/^27\d{9}$/.test(digits)) variants.add(`0${digits.slice(2)}`);
+  return [...variants].filter(Boolean);
+};
+
+const findAuthUserByEmail = async (email) => {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw error;
+    const match = data.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+    if (match) return match;
+    if (data.users.length < 1000) return null;
+  }
+  throw new Error('Auth user lookup exceeded the supported page limit');
+};
+
+const clientIp = (req) =>
+  String(req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || req.ip || '')
+    .split(',')[0]
+    .trim();
+
+const enforceTurnstile = async (req, res, action) => {
+  const result = await verifyTurnstile({
+    token: req.body.turnstile_token,
+    action,
+    remoteIp: clientIp(req),
+  });
+  if (result.success) return true;
+
+  const unavailable = [
+    'not_configured',
+    'fetch_unavailable',
+    'provider_error',
+    'provider_unavailable',
+  ].includes(result.reason);
+  res.status(unavailable ? 503 : 403).json({
+    error: unavailable
+      ? 'Security verification is temporarily unavailable.'
+      : 'Security verification failed. Complete a new check and try again.',
+    code: 'TURNSTILE_FAILED',
+  });
+  return false;
+};
+
+const getSupabaseAuthUser = async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Sign in to finish account setup.', code: 'AUTH_REQUIRED' });
+    return null;
+  }
+
+  const token = authHeader.slice('Bearer '.length).trim();
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data.user) {
+    res.status(401).json({ error: 'Your session is invalid or has expired.', code: 'AUTH_REQUIRED' });
+    return null;
+  }
+  if (!data.user.email_confirmed_at) {
+    res.status(403).json({
+      error: 'Confirm your email before finishing setup.',
+      code: 'EMAIL_NOT_VERIFIED',
+    });
+    return null;
+  }
+  return data.user;
+};
 
 // Common validation checks
 const validateRegister = [
@@ -25,7 +106,13 @@ const validateRegister = [
   body('description').optional().isString().trim().notEmpty().isLength({ max: 1000 }).withMessage('Description is required'),
   body('address').optional().isString().trim().notEmpty().isLength({ max: 255 }).withMessage('Address is required'),
   body('cover_image').optional().notEmpty().withMessage('Cover image is required'),
-  body('is_open').optional().isBoolean().withMessage('Shop open status is required')
+  body('is_open').optional().isBoolean().withMessage('Shop open status is required'),
+  body('turnstile_token')
+    .isString()
+    .trim()
+    .notEmpty()
+    .isLength({ max: 2048 })
+    .withMessage('Security verification is required')
 ];
 
 /**
@@ -36,15 +123,54 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { email, password, name, phone, role, description, address, cover_image, delivery_radius_km, min_order_amount, is_open } = req.body;
+  const { email, password, name, phone, role, description, address, cover_image, delivery_radius_km, min_order_amount, is_open, turnstile_token } = req.body;
 
   try {
+    const normalizedPhone = phone ? normalizePhone(phone) : null;
+    if (phone) {
+      const { data: phoneOwner, error: phoneLookupError } = await supabase
+        .from('users')
+        .select('id')
+        .in('phone', phoneVariants(phone))
+        .limit(1)
+        .maybeSingle();
+      if (phoneLookupError) throw phoneLookupError;
+      if (phoneOwner) {
+        return res.status(409).json({
+          error: 'This phone number already exists.',
+          code: 'PHONE_EXISTS',
+        });
+      }
+    }
+
+    const { data: publicEmailOwner, error: emailLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .ilike('email', email)
+      .limit(1)
+      .maybeSingle();
+    if (emailLookupError) throw emailLookupError;
+    if (publicEmailOwner) {
+      return res.status(409).json({
+        error: 'An account with this email already exists.',
+        code: 'EMAIL_EXISTS',
+      });
+    }
+
+    if (await findAuthUserByEmail(email)) {
+      return res.status(409).json({
+        error: 'This confirmed account still needs a StreetPlate profile. Sign in to finish setup.',
+        code: 'PROFILE_INCOMPLETE',
+      });
+    }
+
     // 1. Register with Supabase Auth — signUp() sends the verification email automatically
     const { data: authData, error: authError } = await supabaseAnon.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://www.streetplate.co.za/email-verified',  
+        emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://www.streetplate.co.za/email-verified',
+        captchaToken: turnstile_token,
       },
     });
 
@@ -62,7 +188,7 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
         email,
         password_hash: passwordHash,
         name,
-        phone,
+        phone: normalizedPhone,
         role,
       })
       .select()
@@ -83,7 +209,7 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
             business_name: name,
             description: description,
             address: address,
-            phone: phone,
+            phone: normalizedPhone,
             cover_image: cover_image,
             is_open: is_open
           });
@@ -122,12 +248,167 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
 });
 
 /**
+ * Complete a missing public profile for an existing, confirmed Auth account.
+ * POST /api/auth/profile/complete
+ */
+router.post('/profile/complete', authLimiter, checkExact([
+  body('password').isString().isLength({ min: 8, max: 128 }),
+  body('name').isString().trim().notEmpty().isLength({ max: 100 }),
+  body('phone').isString().trim().notEmpty().isLength({ min: 7, max: 20 }),
+  body('role').isIn(['customer', 'driver', 'vendor']),
+  body('description').optional().isString().trim().isLength({ max: 1000 }),
+  body('address').optional().isString().trim().isLength({ max: 255 }),
+  body('turnstile_token').isString().trim().notEmpty().isLength({ max: 2048 }),
+]), async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: errors.array()[0]?.msg || 'Invalid profile details.',
+      code: 'INVALID_PROFILE',
+    });
+  }
+
+  const authUser = await getSupabaseAuthUser(req, res);
+  if (!authUser) return;
+
+  const { password, name, phone, role, description, address, turnstile_token } = req.body;
+  if (role === 'vendor' && (!description?.trim() || !address?.trim())) {
+    return res.status(400).json({
+      error: 'Vendor description and address are required.',
+      code: 'INVALID_VENDOR_PROFILE',
+    });
+  }
+
+  try {
+    const { data: existingProfile, error: profileLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    if (profileLookupError) throw profileLookupError;
+    if (existingProfile) {
+      return res.status(409).json({
+        error: 'Your StreetPlate profile already exists.',
+        code: 'PROFILE_EXISTS',
+      });
+    }
+
+    const normalizedPhone = normalizePhone(phone);
+    const { data: phoneOwner, error: phoneLookupError } = await supabase
+      .from('users')
+      .select('id')
+      .in('phone', phoneVariants(phone))
+      .neq('id', authUser.id)
+      .limit(1)
+      .maybeSingle();
+    if (phoneLookupError) throw phoneLookupError;
+    if (phoneOwner) {
+      return res.status(409).json({
+        error: 'This phone number already exists.',
+        code: 'PHONE_EXISTS',
+      });
+    }
+
+    const verifier = createAnonClient();
+    const { data: passwordAuth, error: passwordError } =
+      await verifier.auth.signInWithPassword({
+        email: authUser.email,
+        password,
+        options: { captchaToken: turnstile_token },
+      });
+    if (
+      passwordError?.code === 'captcha_failed' ||
+      /captcha|turnstile/i.test(passwordError?.message || '')
+    ) {
+      return res.status(400).json({
+        error: 'The security check expired.',
+        code: 'CAPTCHA_FAILED',
+      });
+    }
+    if (passwordError || passwordAuth.user?.id !== authUser.id) {
+      return res.status(400).json({
+        error: 'The password is incorrect.',
+        code: 'INVALID_PASSWORD',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .insert({
+        id: authUser.id,
+        email: authUser.email.toLowerCase(),
+        password_hash: passwordHash,
+        name: name.trim(),
+        phone: normalizedPhone,
+        role,
+      })
+      .select('id, email, name, phone, role, avatar_url, latitude, longitude, is_active')
+      .single();
+    if (userError) {
+      if (userError.code === '23505') {
+        return res.status(409).json({
+          error: 'That profile information is already in use.',
+          code: 'PROFILE_CONFLICT',
+        });
+      }
+      throw userError;
+    }
+
+    let roleProfileError = null;
+    if (role === 'vendor') {
+      ({ error: roleProfileError } = await supabase.from('vendors').insert({
+        user_id: authUser.id,
+        business_name: name.trim(),
+        description: description.trim(),
+        address: address.trim(),
+        phone: normalizedPhone,
+        is_open: false,
+      }));
+    } else if (role === 'driver') {
+      const { error: driverProfileError } = await supabase
+        .from('driver_profiles')
+        .insert({ user_id: authUser.id });
+      const { error: driverLocationError } = await supabase
+        .from('driver_locations')
+        .insert({
+          driver_id: authUser.id,
+          latitude: -26.2041,
+          longitude: 28.0473,
+          is_online: false,
+        });
+      roleProfileError = driverProfileError || driverLocationError;
+    }
+
+    if (roleProfileError) {
+      await supabase.from('driver_locations').delete().eq('driver_id', authUser.id);
+      await supabase.from('driver_profiles').delete().eq('user_id', authUser.id);
+      await supabase.from('vendors').delete().eq('user_id', authUser.id);
+      await supabase.from('users').delete().eq('id', authUser.id);
+      return res.status(500).json({
+        error: `The ${role} profile could not be created. No account data was changed.`,
+        code: 'ROLE_PROFILE_FAILED',
+      });
+    }
+
+    return res.status(201).json({ user });
+  } catch (error) {
+    console.error('Profile completion failed:', error.message);
+    return res.status(500).json({
+      error: 'Account setup is temporarily unavailable. Please try again shortly.',
+      code: 'PROFILE_COMPLETION_FAILED',
+    });
+  }
+});
+
+/**
  * Login
  * POST /api/auth/login
  */
 router.post('/login', authLimiter, checkExact([
   body('email').isEmail().normalizeEmail(),
-  body('password').isString().notEmpty().isLength({ max: 128 })
+  body('password').isString().notEmpty().isLength({ max: 128 }),
+  body('turnstile_token').isString().trim().notEmpty().isLength({ max: 2048 })
 ]), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
@@ -135,6 +416,8 @@ router.post('/login', authLimiter, checkExact([
   const { email, password } = req.body;
 
   try {
+    if (!(await enforceTurnstile(req, res, 'login'))) return;
+
     // Grab user from public table
     const { data: user, error } = await supabase
       .from('users')
@@ -221,12 +504,15 @@ router.post('/logout', authenticate, async (req, res) => {
  * POST /api/auth/forgot-password  (no auth required)
  */
 router.post('/forgot-password', authLimiter, async (req, res) => {
-  const { email, redirectTo } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email is required' });
+  const { email, redirectTo, turnstile_token } = req.body;
+  if (!email || typeof turnstile_token !== 'string' || turnstile_token.length > 2048) {
+    return res.status(400).json({ error: 'Email and security verification are required' });
+  }
 
   // Fire and forget — always respond 200 to prevent email enumeration
   supabase.auth.resetPasswordForEmail(email, {
     redirectTo: redirectTo || process.env.EMAIL_REDIRECT_URL?.replace('auth-callback', 'reset-password') || 'kasieats://reset-password',
+    captchaToken: turnstile_token,
   }).catch(() => {});
 
   res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
@@ -352,8 +638,10 @@ router.delete('/sessions', authenticate, async (req, res) => {
  * POST /api/auth/resend-verification
  */
 router.post('/resend-verification', authLimiter, async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: 'Email is required' });
+  const { email, turnstile_token } = req.body;
+  if (!email || typeof turnstile_token !== 'string' || turnstile_token.length > 2048) {
+    return res.status(400).json({ error: 'Email and security verification are required' });
+  }
 
   try {
     const { error } = await supabaseAnon.auth.resend({
@@ -361,6 +649,7 @@ router.post('/resend-verification', authLimiter, async (req, res) => {
       email,
       options: {
         emailRedirectTo: process.env.EMAIL_REDIRECT_URL || 'https://www.streetplate.co.za/email-verified',
+        captchaToken: turnstile_token,
       },
     });
 
@@ -371,6 +660,46 @@ router.post('/resend-verification', authLimiter, async (req, res) => {
     console.error('[auth] resend-verification error:', err);
     res.status(500).json({ error: 'Could not send verification email' });
   }
+});
+
+/**
+ * Update a password from an authenticated Supabase recovery session.
+ * POST /api/auth/update-password
+ */
+router.post('/update-password', authLimiter, checkExact([
+  body('password')
+    .isString()
+    .isLength({ min: 8, max: 128 })
+    .matches(/[a-z]/)
+    .matches(/[A-Z]/)
+    .matches(/[0-9]/)
+    .matches(/[^A-Za-z0-9]/)
+    .withMessage('Password must include uppercase, lowercase, a number, and a symbol'),
+  body('turnstile_token').isString().trim().notEmpty().isLength({ max: 2048 }),
+]), async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const authHeader = req.headers.authorization || '';
+  const accessToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!accessToken) {
+    return res.status(401).json({ error: 'Password recovery session is required.' });
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.getUser(accessToken);
+  if (authError || !authData.user) {
+    return res.status(401).json({ error: 'The reset link is invalid or has expired.' });
+  }
+  if (!(await enforceTurnstile(req, res, 'password_update'))) return;
+
+  const { error } = await supabase.auth.admin.updateUserById(authData.user.id, {
+    password: req.body.password,
+  });
+  if (error) {
+    return res.status(400).json({ error: 'Could not update the password.' });
+  }
+
+  res.json({ success: true });
 });
 
 module.exports = router;
