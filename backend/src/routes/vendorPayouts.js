@@ -15,13 +15,21 @@ const { revertVendorPayout } = require('../services/vendorPayoutService');
 const router = express.Router();
 
 // ─── Helper: resolve vendor id from user id ───────────────────────────────
+class VendorNotFoundError extends Error {
+  constructor() {
+    super('Vendor not found');
+    this.name = 'VendorNotFoundError';
+    this.status = 404;
+  }
+}
+
 const resolveVendorId = async (userId) => {
   const { data, error } = await supabase
     .from('vendors')
     .select('id')
     .eq('user_id', userId)
     .single();
-  if (error || !data) throw new Error('Vendor not found');
+  if (error || !data) throw new VendorNotFoundError();
   return data.id;
 };
 
@@ -46,6 +54,7 @@ router.get('/vendors/wallet', authenticate, authorize('vendor'), async (req, res
       },
     });
   } catch (e) {
+    if (e instanceof VendorNotFoundError) return res.status(404).json({ error: e.message });
     res.status(500).json({ error: e.message || 'Failed to fetch wallet' });
   }
 });
@@ -64,6 +73,7 @@ router.get('/vendors/payouts', authenticate, authorize('vendor'), async (req, re
     if (error) return res.status(500).json({ error: error.message });
     res.json({ payouts: payouts || [] });
   } catch (e) {
+    if (e instanceof VendorNotFoundError) return res.status(404).json({ error: e.message });
     res.status(500).json({ error: e.message || 'Failed to fetch payouts' });
   }
 });
@@ -108,6 +118,7 @@ router.put('/vendors/bank-details', authenticate, authorize('vendor'), bankValid
       },
     });
   } catch (e) {
+    if (e instanceof VendorNotFoundError) return res.status(404).json({ error: e.message });
     res.status(500).json({ error: 'Failed to save bank details' });
   }
 });
