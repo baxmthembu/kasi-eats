@@ -3,6 +3,20 @@
  * Express API server with Socket.IO for real-time features
  */
 require('dotenv').config();
+
+// Fail fast on a misconfigured production deployment, before any route or
+// service module (some of which throw their own less-specific errors, e.g.
+// the rate limiter on missing Redis credentials) gets a chance to load.
+if (process.env.NODE_ENV === 'production') {
+  const { validateProductionEnv } = require('./src/config/productionReadiness');
+  const configErrors = validateProductionEnv(process.env);
+  if (configErrors.length) {
+    console.error('Production configuration is not ready:');
+    for (const error of configErrors) console.error(`- ${error}`);
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
