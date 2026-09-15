@@ -30,7 +30,7 @@ router.get('/profile', authenticate, authorize('driver'), async (req, res) => {
 
   const { data: activeOrder } = await supabase
     .from('orders')
-    .select('id, status, delivery_address, delivery_latitude, delivery_longitude, driver_payout, vendor_id, vendors(business_name, address, latitude, longitude)')
+    .select('id, status, delivery_address, delivery_latitude, delivery_longitude, driver_payout, vendor_id, vendors(business_name, address, latitude, longitude), customer:users!customer_id(name, phone)')
     .eq('driver_id', driverId)
     .not('status', 'eq', 'delivered')
     .not('status', 'eq', 'cancelled')

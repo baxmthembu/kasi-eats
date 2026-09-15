@@ -4,6 +4,12 @@
  */
 require('dotenv').config();
 
+// Pin the process timezone — the app's business logic (weekly payout week
+// boundaries, peak-hour/weekend bonus detection) uses local Date methods
+// (getHours/getDay/setHours) that are meaningless unless this matches the
+// business's actual timezone. Must be set before any Date is constructed.
+process.env.TZ = process.env.TZ || 'Africa/Johannesburg';
+
 // Fail fast on a misconfigured production deployment, before any route or
 // service module (some of which throw their own less-specific errors, e.g.
 // the rate limiter on missing Redis credentials) gets a chance to load.
@@ -23,6 +29,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const { publicLimiter } = require('./src/middleware/rateLimiter');
+const { sanitizeInput } = require('./src/middleware/security');
 const { checkReadiness } = require('./src/services/readinessService');
 
 // Import routes
@@ -120,7 +127,6 @@ app.use(
   })
 );
 
-// Data Sanitization against XSS
 // Rate limiting — Apply global public limiter API-wide
 app.use('/api/', publicLimiter);
 
@@ -135,6 +141,14 @@ app.use((req, res, next) => {
 // ─── Body Parsing ──────────────────────────────────────────
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+// ─── Input Sanitization (XSS) ───────────────────────────────
+// Skip /api/payments — PayFast's ITN signature is computed over the exact
+// bytes it sent; mutating any field before that check breaks verification.
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/payments')) return next();
+  sanitizeInput(req, res, next);
+});
 
 // ─── API Routes ────────────────────────────────────────────
 app.use('/api/auth', authRoutes);

@@ -97,22 +97,27 @@ const getSupabaseAuthUser = async (req, res) => {
 
 // Common validation checks
 const validateRegister = [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
-  body('password').isString().isLength({ min: 8, max: 128 }).withMessage('Password must be at least 8 characters and include uppercase, lowercase, a number, and a symbol'),
-  body('name').isString().trim().notEmpty().isLength({ max: 100 }).withMessage('Name is required and strictly limited in length'),
-  body('phone').optional().isString().trim().notEmpty().isLength({ max: 20 }).withMessage('Phone is required'),
+  body('email').isEmail().withMessage('Valid email is required').bail().normalizeEmail(),
+  body('password')
+    .isString().withMessage('Password is required').bail()
+    .isLength({ min: 8, max: 128 }).withMessage('Password must be 8-128 characters').bail()
+    .matches(/[a-z]/).withMessage('Password must include uppercase, lowercase, a number, and a symbol').bail()
+    .matches(/[A-Z]/).withMessage('Password must include uppercase, lowercase, a number, and a symbol').bail()
+    .matches(/[0-9]/).withMessage('Password must include uppercase, lowercase, a number, and a symbol').bail()
+    .matches(/[^A-Za-z0-9]/).withMessage('Password must include uppercase, lowercase, a number, and a symbol'),
+  body('name').isString().withMessage('Name is required').bail().trim().notEmpty().withMessage('Name is required').bail().isLength({ max: 100 }).withMessage('Name must be 100 characters or fewer'),
+  body('phone').optional().isString().withMessage('Phone is required').bail().trim().notEmpty().withMessage('Phone is required').bail().isLength({ max: 20 }).withMessage('Phone must be 20 characters or fewer'),
   body('role').isIn(['customer', 'driver', 'vendor']).withMessage('Invalid role'),
   // Vendor specific required fields (made optional for other roles)
-  body('description').optional().isString().trim().notEmpty().isLength({ max: 1000 }).withMessage('Description is required'),
-  body('address').optional().isString().trim().notEmpty().isLength({ max: 255 }).withMessage('Address is required'),
+  body('description').optional().isString().withMessage('Description is required').bail().trim().notEmpty().withMessage('Description is required').bail().isLength({ max: 1000 }).withMessage('Description must be 1000 characters or fewer'),
+  body('address').optional().isString().withMessage('Address is required').bail().trim().notEmpty().withMessage('Address is required').bail().isLength({ max: 255 }).withMessage('Address must be 255 characters or fewer'),
   body('cover_image').optional().notEmpty().withMessage('Cover image is required'),
   body('is_open').optional().isBoolean().withMessage('Shop open status is required'),
   body('turnstile_token')
-    .isString()
+    .isString().withMessage('Security verification is required').bail()
     .trim()
-    .notEmpty()
-    .isLength({ max: 2048 })
-    .withMessage('Security verification is required')
+    .notEmpty().withMessage('Security verification is required').bail()
+    .isLength({ max: 2048 }).withMessage('Security verification is required')
 ];
 
 /**
@@ -217,6 +222,7 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
        if (vendorError) {
          // Rollback everything if vendor profile fails
          await supabase.auth.admin.deleteUser(userId);
+         await supabase.from('vendors').delete().eq('user_id', userId);
          await supabase.from('users').delete().eq('id', userId);
          return res.status(500).json({ error: 'Failed to create vendor profile' });
        }
@@ -234,7 +240,10 @@ router.post('/register', authLimiter, checkExact(validateRegister), async (req, 
          is_online: false,
        });
        if (profileError || locError) {
+         // Either insert may have partially succeeded — clean up both regardless.
          await supabase.auth.admin.deleteUser(userId);
+         await supabase.from('driver_locations').delete().eq('driver_id', userId);
+         await supabase.from('driver_profiles').delete().eq('user_id', userId);
          await supabase.from('users').delete().eq('id', userId);
          return res.status(500).json({ error: 'Failed to create driver profile' });
        }
@@ -406,9 +415,9 @@ router.post('/profile/complete', authLimiter, checkExact([
  * POST /api/auth/login
  */
 router.post('/login', authLimiter, checkExact([
-  body('email').isEmail().normalizeEmail(),
-  body('password').isString().notEmpty().isLength({ max: 128 }),
-  body('turnstile_token').isString().trim().notEmpty().isLength({ max: 2048 })
+  body('email').isEmail().withMessage('Valid email is required').bail().normalizeEmail(),
+  body('password').isString().withMessage('Password is required').bail().notEmpty().withMessage('Password is required').bail().isLength({ max: 128 }).withMessage('Password must be 128 characters or fewer'),
+  body('turnstile_token').isString().withMessage('Security verification is required').bail().trim().notEmpty().withMessage('Security verification is required').bail().isLength({ max: 2048 }).withMessage('Security verification is required')
 ]), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });

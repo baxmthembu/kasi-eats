@@ -76,7 +76,24 @@ const offerToNearestDriver = async (io, orderId, excludeDriverIds = []) => {
     .eq('order_id', orderId)
     .eq('status', 'pending');
 
-  const attemptCount = excludeDriverIds.length + 1;
+  // Exclude every driver this order has ever been offered to (not just the
+  // one who just rejected/expired) so a driver can't be re-offered an order
+  // they already turned down, and MAX_ATTEMPTS reflects the real history.
+  // Only 'rejected'/'expired' reflect an actual driver response — 'cancelled'
+  // is used for system-side cleanup (e.g. the stale-pending sweep above) and
+  // must not blacklist a driver who never got to respond.
+  const { data: priorOffers } = await supabase
+    .from('delivery_offers')
+    .select('driver_id')
+    .eq('order_id', orderId)
+    .in('status', ['rejected', 'expired']);
+
+  const allExcludedDriverIds = Array.from(new Set([
+    ...excludeDriverIds,
+    ...(priorOffers || []).map((o) => o.driver_id),
+  ]));
+
+  const attemptCount = allExcludedDriverIds.length + 1;
   if (attemptCount > MAX_ATTEMPTS) {
     return { success: false, reason: 'max_attempts_reached' };
   }
@@ -85,7 +102,7 @@ const offerToNearestDriver = async (io, orderId, excludeDriverIds = []) => {
     vendor.latitude,
     vendor.longitude,
     SEARCH_RADIUS_KM,
-    excludeDriverIds
+    allExcludedDriverIds
   );
 
   if (!nearest) return { success: false, reason: 'no_drivers_available' };
@@ -193,7 +210,7 @@ const acceptOffer = async (io, offerId, driverId) => {
     .update({ driver_id: driverId })
     .eq('id', offer.order_id)
     .is('driver_id', null)
-    .select('*, order_items(*)')
+    .select('*, order_items(*), customer:users!customer_id(name, phone)')
     .single();
 
   if (orderError || !order) {

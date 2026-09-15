@@ -78,6 +78,32 @@ router.get('/vendors/payouts', authenticate, authorize('vendor'), async (req, re
   }
 });
 
+// ─── GET /vendors/bank-details ────────────────────────────────────────────
+router.get('/vendors/bank-details', authenticate, authorize('vendor'), async (req, res) => {
+  try {
+    const vendorId = await resolveVendorId(req.user.id);
+    const { data, error } = await supabase
+      .from('vendor_bank_details')
+      .select('bank_name, account_holder, account_number, branch_code, account_type, updated_at')
+      .eq('vendor_id', vendorId)
+      .maybeSingle();
+
+    if (error) return res.status(500).json({ error: error.message });
+    if (!data) return res.json({ vendor: null });
+
+    const { updated_at, ...bankDetails } = data;
+    res.json({
+      vendor: {
+        ...bankDetails,
+        bank_details_updated_at: updated_at,
+      },
+    });
+  } catch (e) {
+    if (e instanceof VendorNotFoundError) return res.status(404).json({ error: e.message });
+    res.status(500).json({ error: 'Failed to fetch bank details' });
+  }
+});
+
 // ─── PUT /vendors/bank-details ────────────────────────────────────────────
 const bankValidation = [
   body('bank_name').isString().trim().notEmpty().withMessage('Bank name is required'),
@@ -161,6 +187,12 @@ router.patch('/admin/vendor-payouts/:id/status', authenticate, authorize('admin'
       .single();
 
     if (!existing) return res.status(404).json({ error: 'Payout not found' });
+    if (existing.status === 'paid') {
+      return res.status(400).json({ error: 'Cannot change a paid payout' });
+    }
+    if (status === 'rejected' && existing.status === 'rejected') {
+      return res.status(400).json({ error: 'Payout is already rejected' });
+    }
 
     const updateData = {
       status,

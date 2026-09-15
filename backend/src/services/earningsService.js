@@ -186,7 +186,16 @@ const calculateAndCreditEarnings = async (orderId, driverId, io) => {
     .select()
     .single();
 
-  if (earningErr) throw new Error(`[earnings] Failed to save record: ${earningErr.message}`);
+  if (earningErr) {
+    // 23505 = unique_violation — another concurrent request already credited
+    // this delivery (see migrations/008_driver_earnings_unique.sql). Treat it
+    // the same as the pre-insert idempotency check above: not an error.
+    if (earningErr.code === '23505') {
+      console.warn(`[earnings] Concurrent credit detected for order ${orderId} — skipping`);
+      return null;
+    }
+    throw new Error(`[earnings] Failed to save record: ${earningErr.message}`);
+  }
 
   // ── Save bonus records ────────────────────────────────────────────────
   if (applicableBonuses.length > 0) {

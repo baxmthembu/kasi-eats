@@ -40,11 +40,13 @@ router.get('/:orderId', authenticate, async (req, res) => {
 
 // POST /api/messages — Send a message
 router.post('/', authenticate, async (req, res) => {
-  const { order_id, content, message_type = 'text', sender_role } = req.body;
+  const { order_id, content, message_type = 'text' } = req.body;
   const userId = req.user.id;
+  // sender_role is derived from the authenticated session, never trusted from the client body.
+  const sender_role = req.user.role;
 
-  if (!order_id || !content || !sender_role) {
-    return res.status(400).json({ error: 'Missing required fields: order_id, content, sender_role' });
+  if (!order_id || !content) {
+    return res.status(400).json({ error: 'Missing required fields: order_id, content' });
   }
 
   const { data: order, error: orderErr } = await supabase

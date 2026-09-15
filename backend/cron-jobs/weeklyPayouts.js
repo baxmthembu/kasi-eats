@@ -28,7 +28,9 @@ const { processWeeklyVendorPayouts } = require('../src/services/vendorPayoutServ
  * @returns {cron.ScheduledTask}
  */
 const registerPayoutCron = (io) => {
-  // Every Sunday at 23:00 (server local time — ensure TZ=Africa/Johannesburg in production)
+  // Explicit timezone — don't rely on the server process's TZ env var being
+  // set correctly (Railway defaults to UTC, which would fire this at 01:00
+  // SAST Monday instead of 23:00 SAST Sunday).
   const job = cron.schedule('0 23 * * 0', async () => {
     console.log('\n[cron] ━━━ Weekly payout job triggered ━━━');
     try {
@@ -39,9 +41,9 @@ const registerPayoutCron = (io) => {
     } catch (err) {
       console.error('[cron] Weekly payout FAILED:', err.message, err.stack);
     }
-  });
+  }, { timezone: 'Africa/Johannesburg' });
 
-  console.log('✅ Weekly payout cron registered (Sundays 23:00 server time)');
+  console.log('✅ Weekly payout cron registered (Sundays 23:00 SAST)');
   return job;
 };
 

@@ -156,6 +156,9 @@ router.patch(
 
     if (!payout) return res.status(404).json({ error: 'Payout not found' });
     if (payout.status === 'paid') return res.status(400).json({ error: 'Cannot change a paid payout' });
+    if (status === 'rejected' && payout.status === 'rejected') {
+      return res.status(400).json({ error: 'Payout is already rejected' });
+    }
 
     const update = {
       status,
@@ -165,11 +168,6 @@ router.patch(
     if (status === 'approved') update.processed_at = new Date().toISOString();
     if (status === 'paid')     update.paid_at       = new Date().toISOString();
 
-    // On rejection — return earnings to pending + revert wallet
-    if (status === 'rejected') {
-      await revertPayout(req.params.id, payout.driver_id, payout.total_amount);
-    }
-
     const { data: updated, error } = await supabase
       .from('driver_payouts')
       .update(update)
@@ -178,6 +176,13 @@ router.patch(
       .single();
 
     if (error) return res.status(500).json({ error: error.message });
+
+    // On rejection — return earnings to pending + revert wallet. Done only
+    // after the status update commits, so a failed update can't be retried
+    // into crediting the driver's balance back twice.
+    if (status === 'rejected') {
+      await revertPayout(req.params.id, payout.driver_id, payout.total_amount);
+    }
 
     // Real-time push to driver
     const io = req.app.get('io');

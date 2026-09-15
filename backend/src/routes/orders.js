@@ -138,17 +138,20 @@ router.post('/', authenticate, authorize('customer'), checkExact(orderValidation
 router.get('/', authenticate, [
   query('status').optional().isString(),
   query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('offset').optional().isInt({ min: 0 }),
 ], async (req, res) => {
   const userId = req.user.id;
   const role = req.user.role;
-  const { status, limit = 50 } = req.query;
+  const { status, limit = 50, offset = 0 } = req.query;
+  const limitNum = parseInt(limit, 10);
+  const offsetNum = parseInt(offset, 10);
 
   try {
     let q = supabase
       .from('orders')
       .select('*, order_items(*), vendors(id, business_name, address, latitude, longitude, cover_image)')
       .order('created_at', { ascending: false })
-      .limit(parseInt(limit, 10));
+      .range(offsetNum, offsetNum + limitNum - 1);
 
     if (status) {
       const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
@@ -159,7 +162,8 @@ router.get('/', authenticate, [
     else if (role === 'driver') q = q.eq('driver_id', userId);
     else if (role === 'vendor') {
       const { data: vendor } = await supabase.from('vendors').select('id').eq('user_id', userId).single();
-      if (vendor) q = q.eq('vendor_id', vendor.id);
+      if (!vendor) return res.json({ orders: [] });
+      q = q.eq('vendor_id', vendor.id);
     }
 
     const { data, error } = await q;
@@ -263,10 +267,23 @@ router.patch(
         .from('orders')
         .update(updatePayload)
         .eq('id', id)
-        .select('*, order_items(*)')
+        .eq('status', currentStatus)
+        .select('*, order_items(*), customer:users!customer_id(name, phone)')
         .single();
 
-      if (updateError) return res.status(500).json({ error: 'Failed to update status' });
+      if (updateError) {
+        // PGRST116 = .single() matched zero rows — the .eq('status', currentStatus)
+        // guard lost the race, not a real server error. Anything else is a real
+        // failure and must surface as one, or the client retries forever against
+        // a status that never actually changed.
+        if (updateError.code === 'PGRST116') {
+          return res.status(409).json({ error: 'Order status was already changed by another request' });
+        }
+        return res.status(500).json({ error: updateError.message || 'Failed to update order status' });
+      }
+      if (!updated) {
+        return res.status(409).json({ error: 'Order status was already changed by another request' });
+      }
 
       await emitOrderStatus(io, order.customer_id, id, newStatus, {}, vendorUserId);
 

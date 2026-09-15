@@ -3,7 +3,7 @@
  * Browse vendors, menu endpoints
  */
 const express = require('express');
-const { body, query, validationResult, checkExact } = require('express-validator');
+const { body, param, query, validationResult, checkExact } = require('express-validator');
 const { supabase } = require('../config/supabase');
 const { authenticate, authorize } = require('../middleware/auth');
 const { scanUploadedImages, upload, uploadSingle } = require('../middleware/upload');
@@ -36,18 +36,28 @@ const resolveVendor = async (req, res, next) => {
 router.get('/', checkExact([
   query('lat').optional().isFloat({ min: -90, max: 90 }).withMessage('Invalid latitude'),
   query('lng').optional().isFloat({ min: -180, max: 180 }).withMessage('Invalid longitude'),
-  query('radius_km').optional().isFloat({ min: 1, max: 100 }).withMessage('Invalid radius')
+  query('radius_km').optional().isFloat({ min: 1, max: 100 }).withMessage('Invalid radius'),
+  query('search').optional().isString().trim().isLength({ max: 100 }).withMessage('Invalid search')
 ]), async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { lat, lng, radius_km = 5 } = req.query;
+  const { lat, lng, radius_km = 5, search } = req.query;
 
   try {
     let query = supabase.from('vendors').select(`
       id, business_name, description, rating, total_reviews, is_open, cover_image,
-      latitude, longitude
+      latitude, longitude, min_order_amount, category_tags
     `);
+
+    if (search) {
+      // Escape LIKE metachars for ilike's own meaning, then double-quote the
+      // whole value so PostgREST's .or() filter-string parser doesn't treat a
+      // ',' or '()' in the search text as a filter delimiter.
+      const likeEscaped = search.replace(/[%_]/g, '\\$&');
+      const quoted = `"%${likeEscaped.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}%"`;
+      query = query.or(`business_name.ilike.${quoted},description.ilike.${quoted}`);
+    }
 
     // If location provided, we would normally use PostGIS here
     // e.g. ST_DWithin(location::geography, ST_MakePoint(lng, lat)::geography, radius * 1000)
@@ -72,8 +82,18 @@ const profileValidation = [
   body('latitude').optional().isFloat({ min: -90, max: 90 }),
   body('longitude').optional().isFloat({ min: -180, max: 180 }),
   body('phone').isString().trim().notEmpty().isLength({ max: 20 }).withMessage('Phone is required'),
-  body('cover_image').notEmpty().withMessage('Cover image is required'),
-  body('is_open').isBoolean().withMessage('Shop open status is required')
+  // Optional — a vendor can save the rest of their profile before adding a
+  // cover photo (registration no longer requires one upfront, see LoginScreen.js).
+  body('cover_image').optional({ nullable: true }).isString(),
+  body('is_open').isBoolean().withMessage('Shop open status is required'),
+  // These are handled below but were missing from this checkExact() list, so
+  // the client sending any of them (ProfileEditScreen.js always sends the
+  // first two) made every profile save fail with an "unknown_fields" 400.
+  body('delivery_radius_km').optional({ nullable: true }).isFloat({ min: 0.5, max: 100 }).withMessage('Invalid delivery radius'),
+  body('min_order_amount').optional({ nullable: true }).isFloat({ min: 0 }).withMessage('Invalid minimum order amount'),
+  body('business_hours').optional().isObject().withMessage('Invalid business hours'),
+  body('category_tags').optional().isArray().withMessage('Invalid category tags'),
+  body('category_tags.*').optional().isString().trim().isLength({ max: 50 }),
 ];
 
 /**
@@ -237,6 +257,22 @@ router.get('/menu', authenticate, authorize('vendor'), resolveVendor, async (req
 router.post('/menu', authenticate, authorize('vendor'), resolveVendor, upload.array('images', 5), scanUploadedImages, async (req, res) => {
   try {
     const { name, description, price, is_available, category, preparation_time } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'Item name is required' });
+    }
+    const parsedPrice = parseFloat(price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      return res.status(400).json({ error: 'A valid price greater than 0 is required' });
+    }
+    let parsedPrepTime = 15;
+    if (preparation_time !== undefined) {
+      parsedPrepTime = parseInt(preparation_time, 10);
+      if (!Number.isFinite(parsedPrepTime) || parsedPrepTime < 0) {
+        return res.status(400).json({ error: 'A valid preparation time is required' });
+      }
+    }
+
     let image_urls = [];
 
     if (req.files && req.files.length > 0) {
@@ -253,10 +289,10 @@ router.post('/menu', authenticate, authorize('vendor'), resolveVendor, upload.ar
       vendor_id: req.vendor.id,
       name,
       description,
-      price: parseFloat(price),
+      price: parsedPrice,
       image_url: finalImageUrl,
       category,
-      preparation_time: parseInt(preparation_time) || 15,
+      preparation_time: parsedPrepTime,
       is_available: is_available === 'true' || is_available === true
     }).select().single();
 
@@ -273,6 +309,22 @@ router.post('/menu', authenticate, authorize('vendor'), resolveVendor, upload.ar
 router.patch('/menu/:id', authenticate, authorize('vendor'), resolveVendor, upload.array('images', 5), scanUploadedImages, async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (req.body.price !== undefined) {
+      const parsedPrice = parseFloat(req.body.price);
+      if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+        return res.status(400).json({ error: 'A valid price greater than 0 is required' });
+      }
+    }
+    if (req.body.preparation_time !== undefined) {
+      const parsedPrep = parseInt(req.body.preparation_time, 10);
+      if (!Number.isFinite(parsedPrep) || parsedPrep < 0) {
+        return res.status(400).json({ error: 'A valid preparation time is required' });
+      }
+    }
+    if (req.body.name !== undefined && !req.body.name.trim()) {
+      return res.status(400).json({ error: 'Item name cannot be empty' });
+    }
 
     const update = {};
     const fields = ['name', 'description', 'price', 'category', 'preparation_time', 'is_available', 'category_id'];
@@ -386,9 +438,11 @@ router.delete('/menu/:id', authenticate, authorize('vendor'), resolveVendor, asy
  * GET /api/vendors/:id
  */
 router.get('/:id', [
-  // Validate id is string not empty, could be UUID
-  query('id').optional().isString().trim()
+  param('id').isUUID().withMessage('Invalid vendor ID'),
 ], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   try {
     const { data: vendor, error: vendorError } = await supabase
       .from('vendors')

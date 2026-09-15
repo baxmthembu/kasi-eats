@@ -69,7 +69,7 @@ const applyPromotionDiscount = async (subtotal, promotionId, vendorId) => {
  * Client-supplied prices are NEVER trusted.
  */
 const calculateOrderTotal = async (items, deliveryFee = 15, promotionId = null, vendorId = null) => {
-  const ids = items.map((i) => i.menu_item_id || i.id).filter(Boolean);
+  const ids = [...new Set(items.map((i) => i.menu_item_id || i.id).filter(Boolean))];
   if (!ids.length) throw new Error('No valid menu item IDs provided');
 
   const { data: menuItems, error } = await supabase

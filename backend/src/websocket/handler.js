@@ -300,22 +300,6 @@ const setupWebSocket = (io) => {
       socket.join(`order_${orderId}`);
     });
 
-    socket.on('call_request', ({ orderId, callerName, callerRole }) => {
-      socket.to(`order_${orderId}`).emit('incoming_call', { orderId, callerName, callerRole });
-    });
-
-    socket.on('call_accepted', ({ orderId }) => {
-      socket.to(`order_${orderId}`).emit('call_accepted', { orderId });
-    });
-
-    socket.on('call_declined', ({ orderId }) => {
-      socket.to(`order_${orderId}`).emit('call_declined', { orderId });
-    });
-
-    socket.on('call_ended', ({ orderId }) => {
-      socket.to(`order_${orderId}`).emit('call_ended', { orderId });
-    });
-
     socket.on('disconnect', () => {
       console.log('💬 Chat client disconnected:', socket.id);
     });

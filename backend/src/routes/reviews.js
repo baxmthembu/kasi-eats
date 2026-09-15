@@ -195,34 +195,39 @@ router.post('/:id/respond', authenticate, authorize('vendor'), [
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { data: vendor } = await supabase
-    .from('vendors')
-    .select('id')
-    .eq('user_id', req.user.id)
-    .single();
+  try {
+    const { data: vendor } = await supabase
+      .from('vendors')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .single();
+    if (!vendor) return res.status(404).json({ error: 'Vendor not found' });
 
-  const { data: review } = await supabase
-    .from('reviews')
-    .select('*')
-    .eq('id', req.params.id)
-    .eq('target_id', vendor.id)
-    .eq('target_type', 'vendor')
-    .single();
+    const { data: review } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('target_id', vendor.id)
+      .eq('target_type', 'vendor')
+      .single();
 
-  if (!review) return res.status(404).json({ error: 'Review not found' });
+    if (!review) return res.status(404).json({ error: 'Review not found' });
 
-  const { data: updated, error } = await supabase
-    .from('reviews')
-    .update({
-      vendor_response: req.body.response,
-      vendor_responded_at: new Date().toISOString(),
-    })
-    .eq('id', req.params.id)
-    .select()
-    .single();
+    const { data: updated, error } = await supabase
+      .from('reviews')
+      .update({
+        vendor_response: req.body.response,
+        vendor_responded_at: new Date().toISOString(),
+      })
+      .eq('id', req.params.id)
+      .select()
+      .single();
 
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ review: updated });
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ review: updated });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to save response' });
+  }
 });
 
 module.exports = router;

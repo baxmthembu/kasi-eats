@@ -15,6 +15,12 @@ const sanitizeString = (str) => {
     .trim();
 };
 
+// Fields whose exact value must survive untouched — passwords are hashed/compared
+// verbatim and must never be mutated before that happens, or a valid password
+// containing '<', '>', or an on\w+= substring gets wrongly rejected by the
+// complexity check (or, worse, silently changes what gets hashed).
+const PRESERVE_EXACT_KEY = /password/i;
+
 /**
  * Recursively sanitize all string values in an object
  */
@@ -24,7 +30,7 @@ const sanitizeObject = (obj) => {
   if (obj && typeof obj === 'object') {
     const sanitized = {};
     for (const [key, value] of Object.entries(obj)) {
-      sanitized[key] = sanitizeObject(value);
+      sanitized[key] = PRESERVE_EXACT_KEY.test(key) ? value : sanitizeObject(value);
     }
     return sanitized;
   }
