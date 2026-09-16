@@ -23,6 +23,15 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
+// Initialized as early as possible so it can capture errors thrown while
+// requiring the modules below. No-ops when SENTRY_DSN is unset (local/dev).
+const Sentry = require('@sentry/node');
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV || 'development',
+  tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 0,
+});
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -337,6 +346,10 @@ app.get('/terms', (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
+
+// Reports unhandled errors from the routes above to Sentry before they
+// reach our own formatter. No-ops when SENTRY_DSN is unset.
+Sentry.setupExpressErrorHandler(app);
 
 // ─── Global Error Handler ──────────────────────────────────
 app.use((err, req, res, next) => {
